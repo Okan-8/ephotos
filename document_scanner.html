@@ -1116,7 +1116,7 @@ function drawRRect(){
   ectx.strokeRect(x,y,w,h);
   ectx.setLineDash([]);
   // Corners — simple small squares, no decoration
-  const cs=Math.max(8,12/edSc);
+  const cs=Math.max(5,8/edSc);
   [[x,y],[x+w,y],[x,y+h],[x+w,y+h]].forEach(([cx,cy])=>{
     ectx.fillStyle='#fff';
     ectx.fillRect(cx-cs/2,cy-cs/2,cs,cs);
