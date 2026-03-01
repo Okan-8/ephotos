@@ -68,7 +68,7 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
 
 /* ── THUMBNAIL STRIP ── */
 .strip{
-  height:82px;
+  height:72px;
   background:#0d1b35;
   display:flex;align-items:center;
   gap:6px;padding:6px 8px;
@@ -79,7 +79,7 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
 .strip:empty::after{content:'No pages yet';color:rgba(255,255,255,.3);font-size:11px;margin:auto;}
 .thumb{
   position:relative;flex-shrink:0;
-  width:54px;height:70px;
+  width:44px;height:60px;
   border-radius:4px;overflow:hidden;
   border:2px solid transparent;
   cursor:pointer;
@@ -89,19 +89,11 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
 .thumb .t-num{
   position:absolute;bottom:0;left:0;right:0;
   background:rgba(0,0,0,.6);color:#fff;
-  font-size:9px;font-weight:700;text-align:center;padding:2px;
+  font-size:8px;font-weight:700;text-align:center;padding:2px;
 }
-.thumb .drag-handle{
-  position:absolute;top:0;left:0;right:0;
-  background:rgba(0,0,0,.5);color:#fff;
-  font-size:10px;text-align:center;padding:2px;
-  cursor:grab;display:none;
-}
-.thumb:hover .drag-handle{display:block;}
-.thumb.dragging{opacity:0.5;transform:scale(0.95);}
 /* Add button in strip */
 .thumb-add{
-  flex-shrink:0;width:54px;height:70px;border-radius:4px;
+  flex-shrink:0;width:44px;height:60px;border-radius:4px;
   background:rgba(255,255,255,.1);border:1.5px dashed rgba(255,255,255,.3);
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   cursor:pointer;color:rgba(255,255,255,.6);font-size:20px;gap:2px;
@@ -163,48 +155,6 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
   display:flex;gap:8px;justify-content:space-between;flex-shrink:0;
 }
 
-/* ── REDACT BAR ── */
-#redactBar{
-  display:none;background:#0d1b35;padding:6px 14px;align-items:center;gap:10px;flex-shrink:0;
-}
-#redactBar.show{display:flex;}
-
-/* ── REORDER MODAL ── */
-#reorderModal{
-  display:none;position:fixed;inset:0;z-index:9998;
-  background:rgba(0,0,0,.9);flex-direction:column;
-}
-#reorderModal.open{display:flex;}
-.reorder-hdr{
-  background:#1a2a4a;padding:12px 16px;
-  display:flex;align-items:center;justify-content:space-between;
-}
-.reorder-hdr h3{font-size:16px;font-weight:700;}
-.reorder-hdr button{background:none;border:none;color:#fff;font-size:26px;cursor:pointer;}
-.reorder-list{
-  flex:1;overflow-y:auto;padding:16px;
-  display:flex;flex-direction:column;gap:10px;
-}
-.reorder-item{
-  background:#1a2a4a;border-radius:8px;padding:12px;
-  display:flex;align-items:center;gap:12px;
-  border:2px solid transparent;cursor:move;
-}
-.reorder-item.dragging{opacity:0.5;border-color:#27ae60;}
-.reorder-item img{width:50px;height:60px;object-fit:cover;border-radius:4px;}
-.reorder-item span{font-size:14px;font-weight:600;flex:1;}
-.reorder-item .handle{font-size:20px;color:rgba(255,255,255,.5);}
-.reorder-ftr{
-  background:#1a2a4a;padding:16px;
-  display:flex;gap:8px;justify-content:flex-end;
-}
-.reorder-ftr button{
-  padding:12px 20px;border:none;border-radius:8px;
-  font-size:14px;font-weight:700;cursor:pointer;
-}
-.reorder-ftr .cancel{background:rgba(255,255,255,.15);color:#fff;}
-.reorder-ftr .save{background:#27ae60;color:#fff;}
-
 /* ── PDF MODAL ── */
 #pdfModal{
   display:none;position:fixed;inset:0;z-index:9998;
@@ -238,6 +188,8 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
 .st.err{background:#f8d7da;color:#721c24;}
 .st.info{background:#d1ecf1;color:#0c5460;}
 
+
+
 /* Generic small btn */
 .gbtn{
   padding:6px 12px;border:none;border-radius:6px;
@@ -245,6 +197,8 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
 }
 .gbtn-danger{background:#c0392b;color:#fff;}
 .gbtn-light{background:rgba(255,255,255,.15);color:#fff;}
+#redactBar{display:none;}
+#redactBar.show{display:flex;}
 </style>
 </head>
 <body>
@@ -281,13 +235,15 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
   <button class="tbtn" id="tbEdit" onclick="openEd(curIdx)" disabled>
     <span class="ico">✏️</span><span>Edit</span>
   </button>
-  <button class="tbtn" id="tbReorder" onclick="openReorderModal()" disabled>
-    <span class="ico">🔄</span><span>Reorder</span>
+  <button class="tbtn" id="tbRotate" onclick="rotateCurrent()" disabled>
+    <span class="ico">↻</span><span>Rotate</span>
   </button>
   <button class="tbtn green" id="tbPDF" onclick="openPDFModal()" disabled>
     <span class="ico">📄</span><span>PDF</span>
   </button>
 </div>
+
+
 
 <input type="file" id="fi" accept="image/*" multiple style="display:none" onchange="addPages(event)">
 
@@ -299,17 +255,18 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
   </div>
   <div class="ed-tools">
     <button class="etbtn" id="tCrop"   onclick="setTool('crop')">✂️ Crop</button>
-    <button class="etbtn" id="tRedact" onclick="setTool('redact')">⬜ Redact</button>
-    <button class="etbtn" id="tRotate" onclick="rotImg(90)">↻ Rotate</button>
-    <button class="etbtn" id="tAuto" onclick="autoCrop()">🔲 Auto</button>
+    <button class="etbtn" id="tRedact" onclick="setTool('redact')">🖌 Brush</button>
+    <button class="etbtn" id="tRedactRect" onclick="setTool('redactRect')">⬜ Box</button>
+    <button class="etbtn"              onclick="rotImg(90)">↻ Rotate</button>
+    <button class="etbtn"              onclick="autoCrop()">🔲 Auto</button>
   </div>
-  <div id="redactBar">
+  <div id="redactBar" style="display:none;background:#0d1b35;padding:6px 14px;align-items:center;gap:10px;flex-shrink:0;">
     <span style="color:#fff;font-size:11px;white-space:nowrap;">🖌</span>
     <input type="range" id="brushSize" min="4" max="100" value="20"
       style="flex:1;accent-color:#27ae60;"
       oninput="brushRadius=parseInt(this.value);document.getElementById('brushSizeVal').textContent=this.value">
     <span id="brushSizeVal" style="color:#fff;font-size:11px;min-width:28px;text-align:right">20px</span>
-    <button onclick="hideRedactBar()" style="background:none;border:none;color:rgba(255,255,255,.5);font-size:16px;cursor:pointer;padding:0 4px">✕</button>
+    <button onclick="document.getElementById('redactBar').style.display='none'" style="background:none;border:none;color:rgba(255,255,255,.5);font-size:16px;cursor:pointer;padding:0 4px">✕</button>
   </div>
   <div class="ed-canvas-area" id="edCanvasArea">
     <canvas id="ec"></canvas>
@@ -323,19 +280,6 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
       <button class="gbtn gbtn-light" onclick="closeEd()">Cancel</button>
       <button class="gbtn" style="background:#27ae60;color:#fff" onclick="applyEd()">✓ Apply</button>
     </div>
-  </div>
-</div>
-
-<!-- REORDER MODAL -->
-<div id="reorderModal">
-  <div class="reorder-hdr">
-    <h3>🔄 Reorder Pages</h3>
-    <button onclick="closeReorderModal()">×</button>
-  </div>
-  <div class="reorder-list" id="reorderList"></div>
-  <div class="reorder-ftr">
-    <button class="cancel" onclick="closeReorderModal()">Cancel</button>
-    <button class="save" onclick="saveReorder()">Apply Order</button>
   </div>
 </div>
 
@@ -358,6 +302,8 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
   </div>
 </div>
 
+
+
 <script>
 if(sessionStorage.getItem('bulut_auth')!=='1') window.location.href='index.html';
 
@@ -365,6 +311,7 @@ if(sessionStorage.getItem('bulut_auth')!=='1') window.location.href='index.html'
 const pages = [];
 let curIdx  = null;
 let pdfQ    = 0.6;
+let tReady  = false;
 
 /* ═══ EXIF + AUTO-ROTATE ═══ */
 function applyOrientation(img, ori, cb){
@@ -388,9 +335,10 @@ function applyOrientation(img, ori, cb){
 function autoRotLeft(dataUrl, quality, cb){
   const img=new Image();
   img.onload=()=>{
+    // Apply max dimension based on quality setting
     const maxDims={0.6:1200, 0.8:1800, 0.92:2400, 1:99999};
     const maxD=maxDims[quality]||1800;
-    let sw=img.height, sh=img.width;
+    let sw=img.height, sh=img.width; // after 90° rotation width/height swap
     if(sw>maxD){sh=Math.round(sh*maxD/sw);sw=maxD;}
     if(sh>maxD){sw=Math.round(sw*maxD/sh);sh=maxD;}
     const c=document.createElement('canvas');
@@ -398,6 +346,7 @@ function autoRotLeft(dataUrl, quality, cb){
     const ctx=c.getContext('2d');
     ctx.translate(c.width/2,c.height/2);
     ctx.rotate(-Math.PI/2);
+    // draw original (img.width x img.height) scaled to fit
     const scaleX=sh/img.width, scaleY=sw/img.height;
     ctx.scale(scaleX,scaleY);
     ctx.drawImage(img,-img.width/2,-img.height/2);
@@ -433,7 +382,6 @@ function triggerAdd(){
   f.removeAttribute('capture');
   f.value=''; f.click();
 }
-
 function delCurrent(){
   if(curIdx===null||!pages.length) return;
   pages.splice(curIdx,1);
@@ -442,10 +390,11 @@ function delCurrent(){
   renderStrip();
   updateUI();
 }
-
 function showEmpty(){
   document.getElementById('bigPreview').style.display='none';
-  document.getElementById('emptyState').style.display='flex';
+  const es=document.getElementById('emptyState');
+  es.innerHTML='<svg viewBox="0 0 24 24" style="width:64px;height:64px;fill:#fff"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg><p>Tap + to add pages</p>';
+  es.style.display='flex';
   document.getElementById('pgBadge').style.display='none';
   document.getElementById('btnPrev').style.display='none';
   document.getElementById('btnNext').style.display='none';
@@ -454,14 +403,14 @@ function showEmpty(){
 function addPages(ev){
   const files=Array.from(ev.target.files); ev.target.value='';
   if(!files.length)return;
-  document.getElementById('emptyState').innerHTML='<div style="color:rgba(255,255,255,.6);font-size:13px">⏳ Loading '+files.length+' page(s)…</div>';
-  document.getElementById('emptyState').style.display='flex';
+  // Process all files in parallel
   const results=new Array(files.length).fill(null);
   let done=0;
   files.forEach((f,i)=>{
     loadAndFix(f,url=>{
       results[i]=url;
       if(++done===files.length){
+        // Add in original order
         results.forEach(url=>pages.push({orig:url,cur:url}));
         selectPage(pages.length-1);
         renderStrip();
@@ -480,8 +429,10 @@ function selectPage(idx){
   document.getElementById('emptyState').style.display='none';
   document.getElementById('pgBadge').textContent=(idx+1)+' / '+pages.length;
   document.getElementById('pgBadge').style.display='block';
+  // nav arrows
   document.getElementById('btnPrev').style.display=idx>0?'flex':'none';
   document.getElementById('btnNext').style.display=idx<pages.length-1?'flex':'none';
+  // highlight strip
   document.querySelectorAll('.thumb').forEach((t,i)=>t.classList.toggle('active',i===idx));
   updateUI();
 }
@@ -491,41 +442,116 @@ function navigate(dir){
   selectPage(curIdx+dir);
 }
 
+function rotateCurrent(){
+  if(curIdx===null)return;
+  const src=pages[curIdx].cur;
+  const img=new Image();
+  img.onload=()=>{
+    const c=document.createElement('canvas');
+    c.width=img.height; c.height=img.width;
+    const ctx=c.getContext('2d');
+    ctx.translate(c.width/2,c.height/2);
+    ctx.rotate(Math.PI/2);
+    ctx.drawImage(img,-img.width/2,-img.height/2);
+    const url=c.toDataURL('image/jpeg',pdfQ);
+    pages[curIdx]={orig:url,cur:url};
+    selectPage(curIdx);
+    renderStrip();
+  };
+  img.src=src;
+}
+
+// Drag-sort state
+let dragSrcIdx=null;
+
 function renderStrip(){
   const strip=document.getElementById('strip');
   strip.innerHTML='';
   pages.forEach((pg,idx)=>{
     const t=document.createElement('div');
     t.className='thumb'+(idx===curIdx?' active':'');
-    t.onclick=()=>selectPage(idx);
-    t.setAttribute('draggable','true');
-    t.ondragstart=(e)=>{
-      e.dataTransfer.setData('text/plain',idx);
-      t.classList.add('dragging');
-    };
-    t.ondragend=()=>t.classList.remove('dragging');
-    t.ondragover=(e)=>e.preventDefault();
-    t.ondrop=(e)=>{
+    t.onclick=()=>{ if(!dragSrcIdx&&dragSrcIdx!==0) selectPage(idx); };
+
+    // Drag sort — mouse
+    t.draggable=true;
+    t.addEventListener('dragstart',e=>{
+      dragSrcIdx=idx;
+      t.style.opacity='0.4';
+      e.dataTransfer.effectAllowed='move';
+    });
+    t.addEventListener('dragend',e=>{ t.style.opacity=''; dragSrcIdx=null; });
+    t.addEventListener('dragover',e=>{ e.preventDefault(); e.dataTransfer.dropEffect='move'; });
+    t.addEventListener('dragenter',e=>{ t.style.outline='2px solid #27ae60'; });
+    t.addEventListener('dragleave',e=>{ t.style.outline=''; });
+    t.addEventListener('drop',e=>{
+      e.preventDefault(); t.style.outline='';
+      if(dragSrcIdx===null||dragSrcIdx===idx) return;
+      const moved=pages.splice(dragSrcIdx,1)[0];
+      pages.splice(idx,0,moved);
+      curIdx=idx; // follow the moved page
+      renderStrip();
+      selectPage(curIdx);
+      dragSrcIdx=null;
+    });
+
+    // Drag sort — touch
+    let touchDragTimer=null, touchDragActive=false, touchDragClone=null;
+    t.addEventListener('touchstart',e=>{
+      touchDragTimer=setTimeout(()=>{
+        touchDragActive=true;
+        dragSrcIdx=idx;
+        // Create visual clone
+        touchDragClone=t.cloneNode(true);
+        touchDragClone.style.cssText='position:fixed;z-index:9999;opacity:0.7;pointer-events:none;width:44px;height:60px;border-radius:4px;overflow:hidden;';
+        document.body.appendChild(touchDragClone);
+        t.style.opacity='0.3';
+      },400);
+    },{passive:true});
+    t.addEventListener('touchmove',e=>{
+      if(!touchDragActive) return;
       e.preventDefault();
-      const fromIdx=parseInt(e.dataTransfer.getData('text/plain'));
-      const toIdx=idx;
-      if(fromIdx!==toIdx){
-        const [moved]=pages.splice(fromIdx,1);
-        pages.splice(toIdx,0,moved);
-        curIdx=toIdx;
-        renderStrip();
-        selectPage(toIdx);
+      const touch=e.touches[0];
+      if(touchDragClone){
+        touchDragClone.style.left=(touch.clientX-22)+'px';
+        touchDragClone.style.top=(touch.clientY-30)+'px';
       }
-    };
+      // Find target thumb under finger
+      document.querySelectorAll('.thumb').forEach((el,i)=>{
+        const r=el.getBoundingClientRect();
+        el.style.outline=(touch.clientX>=r.left&&touch.clientX<=r.right&&touch.clientY>=r.top&&touch.clientY<=r.bottom&&i!==dragSrcIdx)?'2px solid #27ae60':'';
+      });
+    },{passive:false});
+    t.addEventListener('touchend',e=>{
+      clearTimeout(touchDragTimer);
+      if(touchDragClone){touchDragClone.remove();touchDragClone=null;}
+      t.style.opacity='';
+      document.querySelectorAll('.thumb').forEach(el=>el.style.outline='');
+      if(!touchDragActive){ touchDragActive=false; dragSrcIdx=null; return; }
+      touchDragActive=false;
+      const touch=e.changedTouches[0];
+      let targetIdx=null;
+      document.querySelectorAll('.thumb').forEach((el,i)=>{
+        const r=el.getBoundingClientRect();
+        if(touch.clientX>=r.left&&touch.clientX<=r.right&&touch.clientY>=r.top&&touch.clientY<=r.bottom) targetIdx=i;
+      });
+      if(targetIdx!==null&&targetIdx!==dragSrcIdx){
+        const moved=pages.splice(dragSrcIdx,1)[0];
+        pages.splice(targetIdx,0,moved);
+        curIdx=targetIdx;
+        renderStrip();
+        selectPage(curIdx);
+      }
+      dragSrcIdx=null;
+    },{passive:true});
+
     const img=document.createElement('img');
     img.src=pg.cur;
     const num=document.createElement('div');
     num.className='t-num'; num.textContent=idx+1;
-    const handle=document.createElement('div');
-    handle.className='drag-handle'; handle.innerHTML='⋮⋮';
-    t.append(handle,img,num);
+    t.append(img,num);
     strip.appendChild(t);
   });
+  // Add button
   const add=document.createElement('div');
   add.className='thumb-add';
   add.innerHTML='<span style="font-size:22px">+</span><span>Add</span>';
@@ -538,79 +564,22 @@ function updateUI(){
   const hasSel=curIdx!==null;
   document.getElementById('tbDel').disabled=!hasSel;
   document.getElementById('tbEdit').disabled=!hasSel;
-  document.getElementById('tbReorder').disabled=!has;
+  document.getElementById('tbRotate').disabled=!hasSel;
   document.getElementById('tbPDF').disabled=!has;
-}
-
-/* ═══ REORDER MODAL ═══ */
-let reorderPages = [];
-
-function openReorderModal(){
-  if(pages.length===0)return;
-  reorderPages = pages.map(p=>({orig:p.orig, cur:p.cur}));
-  renderReorderList();
-  document.getElementById('reorderModal').classList.add('open');
-}
-
-function closeReorderModal(){
-  document.getElementById('reorderModal').classList.remove('open');
-}
-
-function renderReorderList(){
-  const list=document.getElementById('reorderList');
-  list.innerHTML='';
-  reorderPages.forEach((pg,idx)=>{
-    const item=document.createElement('div');
-    item.className='reorder-item';
-    item.setAttribute('draggable','true');
-    item.ondragstart=(e)=>{
-      e.dataTransfer.setData('text/plain',idx);
-      item.classList.add('dragging');
-    };
-    item.ondragend=()=>item.classList.remove('dragging');
-    item.ondragover=(e)=>e.preventDefault();
-    item.ondrop=(e)=>{
-      e.preventDefault();
-      const fromIdx=parseInt(e.dataTransfer.getData('text/plain'));
-      const toIdx=idx;
-      if(fromIdx!==toIdx){
-        const [moved]=reorderPages.splice(fromIdx,1);
-        reorderPages.splice(toIdx,0,moved);
-        renderReorderList();
-      }
-    };
-    const img=document.createElement('img');
-    img.src=pg.cur;
-    const span=document.createElement('span');
-    span.textContent=`Page ${idx+1}`;
-    const handle=document.createElement('div');
-    handle.className='handle'; handle.innerHTML='⋮⋮';
-    item.append(img,span,handle);
-    list.appendChild(item);
-  });
-}
-
-function saveReorder(){
-  pages.length=0;
-  reorderPages.forEach(p=>pages.push({orig:p.orig, cur:p.cur}));
-  curIdx=0;
-  renderStrip();
-  selectPage(0);
-  closeReorderModal();
 }
 
 /* ═══ EDITOR ═══ */
 let edIdx=null, edW, edH, edSc;
-let tool='none', history=[], cropRect=null;
+let tool='crop', history=[], cropRect=null;
+// quad = {tl,tr,bl,br} — 4 free-moving corners for skewed crop
 let quad=null;
 let brushRadius=20;
-let drawing=false, px0,py0,px1,py1, dragCorner=null, dragEdge=null;
-let panStart=null, quadAtPanStart=null;
-let vZ=1, vX=0, vY=0;
-let vpanStart=null, vXatPan=0, vYatPan=0;
-let pinch0=null, pinchMidX=0, pinchMidY=0;
-let brushPoints = [];
-
+let panStart=null, quadAtPanStart=null; // for dragging whole quad
+let drawing=false, px0,py0,px1,py1, dragCorner=null, dragEdge=null, pinch0=null;
+// Viewport pan+zoom (for canvas element positioning)
+let vZ=1, vX=0, vY=0; // zoom, translateX, translateY
+let pinchMidX=0, pinchMidY=0; // midpoint of pinch gesture
+let vpanStart=null, vXatPan=0, vYatPan=0; // 1-finger canvas pan (when no tool active)
 const edModal=document.getElementById('edModal');
 const ec=document.getElementById('ec');
 const ectx=ec.getContext('2d');
@@ -619,9 +588,11 @@ function openEd(idx){
   if(idx===null||idx===undefined)return;
   edIdx=idx; history=[]; cropRect=null; quad=null; tool='none'; vZ=1; vX=0; vY=0;
   document.querySelectorAll('.etbtn').forEach(b=>b.classList.remove('on'));
-  document.getElementById('redactBar').style.display='none';
+  tool='none';
   document.getElementById('edTitle').textContent='Edit — Page '+(idx+1);
   edModal.classList.add('open');
+
+  // Wait for modal to be visible so clientWidth/Height are correct
   requestAnimationFrame(()=>{
     requestAnimationFrame(()=>{
       const img=new Image();
@@ -646,10 +617,10 @@ function fitCanvas(){
   const dispH = Math.round(edH * edSc);
   ec.style.width  = dispW + 'px';
   ec.style.height = dispH + 'px';
+  // Reset viewport
   vZ=1; vX=0; vY=0;
   applyViewport();
 }
-
 function applyViewport(){
   const area=document.getElementById('edCanvasArea');
   const ww=area.clientWidth, wh=area.clientHeight;
@@ -669,7 +640,8 @@ function redrawEc(srcOverride){
   img.onload=()=>{
     ectx.clearRect(0,0,ec.width,ec.height);
     ectx.drawImage(img,0,0,ec.width,ec.height);
-    if(quad && tool==='crop') drawCropOverlay();
+    drawCropOverlay();
+    if(tool==='redactRect') drawRRect();
   };
   img.src=src;
 }
@@ -677,21 +649,22 @@ function redrawEc(srcOverride){
 function rectToQuad(x,y,w,h){
   return{tl:{x,y},tr:{x:x+w,y},bl:{x,y:y+h},br:{x:x+w,y:y+h}};
 }
-
 function drawCropOverlay(){
   if(!quad)return;
   const{tl,tr,bl,br}=quad;
   const lw=Math.max(2,3/edSc);
   const navy='#000000';
 
+  // ── Border: thin solid navy line with white glow underneath ──
   ectx.save();
+  // White glow / outline
   ectx.strokeStyle='rgba(255,255,255,0.7)';
   ectx.lineWidth=lw+4; ectx.setLineDash([]);
   ectx.beginPath();
   ectx.moveTo(tl.x,tl.y);ectx.lineTo(tr.x,tr.y);
   ectx.lineTo(br.x,br.y);ectx.lineTo(bl.x,bl.y);
   ectx.closePath();ectx.stroke();
-
+  // Navy border
   ectx.strokeStyle=navy;
   ectx.lineWidth=lw+1; ectx.setLineDash([]);
   ectx.beginPath();
@@ -700,35 +673,42 @@ function drawCropOverlay(){
   ectx.closePath();ectx.stroke();
   ectx.restore();
 
+  // ── Corner handles: hollow circle, navy stroke, transparent fill ──
   const cr=Math.max(10,14/edSc);
   [tl,tr,bl,br].forEach(p=>{
     ectx.save();
+    // White backing
     ectx.strokeStyle='rgba(255,255,255,0.8)';
     ectx.lineWidth=Math.max(2,4/edSc)+2;
     ectx.beginPath();ectx.arc(p.x,p.y,cr,0,Math.PI*2);ectx.stroke();
+    // Navy ring
     ectx.strokeStyle=navy;
     ectx.lineWidth=Math.max(2,4/edSc);
     ectx.beginPath();ectx.arc(p.x,p.y,cr,0,Math.PI*2);ectx.stroke();
     ectx.restore();
   });
 
+  // ── Edge midpoint handles: hollow rounded rect, navy stroke ──
   const edges=[
-    {a:tl,b:tr},
-    {a:tr,b:br},
-    {a:bl,b:br},
-    {a:tl,b:bl},
+    {a:tl,b:tr},  // top
+    {a:tr,b:br},  // right
+    {a:bl,b:br},  // bottom
+    {a:tl,b:bl},  // left
   ];
   const rw=Math.max(20,28/edSc), rh=Math.max(10,14/edSc);
   edges.forEach(({a,b})=>{
     const mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
+    // Angle of edge
     const angle=Math.atan2(b.y-a.y,b.x-a.x);
     ectx.save();
     ectx.translate(mx,my);ectx.rotate(angle);
+    // White backing
     ectx.strokeStyle='rgba(255,255,255,0.8)';
     ectx.lineWidth=Math.max(2,3/edSc)+2;
     ectx.beginPath();
     roundRect(ectx,-rw/2,-rh/2,rw,rh,rh/2);
     ectx.stroke();
+    // Navy
     ectx.strokeStyle=navy;
     ectx.lineWidth=Math.max(2,3/edSc);
     ectx.beginPath();
@@ -737,6 +717,7 @@ function drawCropOverlay(){
     ectx.restore();
   });
 
+  // ── Center move handle: hollow circle + crosshair ──
   const ccx=(tl.x+tr.x+bl.x+br.x)/4;
   const ccy=(tl.y+tr.y+bl.y+br.y)/4;
   const ccr=Math.max(18,24/edSc);
@@ -747,6 +728,7 @@ function drawCropOverlay(){
   ectx.strokeStyle=navy;
   ectx.lineWidth=Math.max(2,3/edSc);
   ectx.beginPath();ectx.arc(ccx,ccy,ccr,0,Math.PI*2);ectx.stroke();
+  // crosshair
   const arm=ccr*0.55;
   ectx.beginPath();
   ectx.moveTo(ccx-arm,ccy);ectx.lineTo(ccx+arm,ccy);
@@ -756,7 +738,6 @@ function drawCropOverlay(){
 }
 
 function roundRect(ctx,x,y,w,h,r){
-  ctx.beginPath();
   ctx.moveTo(x+r,y);
   ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);
   ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
@@ -767,45 +748,30 @@ function roundRect(ctx,x,y,w,h,r){
 
 function setTool(t){
   if(tool===t){
-    tool='none';
+    tool='none'; rRect=null;
     document.querySelectorAll('.etbtn').forEach(b=>b.classList.remove('on'));
     document.getElementById('redactBar').style.display='none';
-    quad=null;
-    redrawEc();
-    return;
+    redrawEc(); return;
   }
-  tool=t;
+  tool=t; rRect=null;
   document.querySelectorAll('.etbtn').forEach(b=>b.classList.remove('on'));
-  document.getElementById('t'+t.charAt(0).toUpperCase()+t.slice(1)).classList.add('on');
-  if(t==='crop' && !quad){
-    quad=rectToQuad(50,50,edW-100,edH-100);
-  }
+  const btnId='t'+t.charAt(0).toUpperCase()+t.slice(1);
+  const btn=document.getElementById(btnId);
+  if(btn) btn.classList.add('on');
   document.getElementById('redactBar').style.display=(t==='redact')?'flex':'none';
 }
 
-function hideRedactBar(){
-  document.getElementById('redactBar').style.display='none';
-  if(tool==='redact'){
-    tool='none';
-    document.querySelectorAll('.etbtn').forEach(b=>b.classList.remove('on'));
-  }
-}
-
-function closeEd(){
-  edModal.classList.remove('open');
-  quad=null;
-  tool='none';
-}
+function closeEd(){edModal.classList.remove('open');}
 
 function undoEd(){
   if(history.length<=1)return;
   history.pop();
-  quad=null;
+  cropRect=null; quad=null; rRect=null;
   redrawEc();
 }
 
 function resetEd(){
-  history=[];quad=null;
+  history=[];cropRect=null;quad=null;
   const img=new Image();
   img.onload=()=>{
     edW=img.width;edH=img.height;fitCanvas();
@@ -831,11 +797,8 @@ function rotImg(deg){
     edW=c.width;edH=c.height;
     fitCanvas();
     const ni=new Image();
-    ni.onload=()=>{
-      ectx.clearRect(0,0,ec.width,ec.height);
-      ectx.drawImage(ni,0,0,ec.width,ec.height);
-    };
-    ni.src=url;quad=null;
+    ni.onload=()=>{ectx.clearRect(0,0,ec.width,ec.height);ectx.drawImage(ni,0,0,ec.width,ec.height);};
+    ni.src=url;cropRect=null;
   };
   img.src=src;
 }
@@ -857,11 +820,12 @@ function autoCrop(){
         if(x<mnX)mnX=x;if(y<mnY)mnY=y;if(x>mxX)mxX=x;if(y>mxY)mxY=y;
       }
     }
-    const pad=12;
-    mnX=Math.max(0,mnX-pad);mnY=Math.max(0,mnY-pad);
-    mxX=Math.min(c.width,mxX+pad);mxY=Math.min(c.height,mxY+pad);
+    const pad=20; // extra inset so handles aren't right at edge
+    mnX=Math.max(0,mnX+pad);mnY=Math.max(0,mnY+pad);
+    mxX=Math.min(c.width,mxX-pad);mxY=Math.min(c.height,mxY-pad);
     if(mxX-mnX>20&&mxY-mnY>20){
       quad=rectToQuad(mnX,mnY,mxX-mnX,mxY-mnY);
+      cropRect=null;
       redrawEc();
     }
   };
@@ -869,6 +833,8 @@ function autoCrop(){
 }
 
 function applyEd(){
+  // commit any pending rect redact first
+  if(rRect){ commitRRect(); return; } // commitRRect will call redrawEc, user presses Apply again for crop
   const src=history[history.length-1]||pages[edIdx].cur;
   const img=new Image();
   img.onload=()=>{
@@ -876,6 +842,7 @@ function applyEd(){
     c.width=img.width;c.height=img.height;
     c.getContext('2d').drawImage(img,0,0);
     if(quad){
+      // Bounding box of quad
       const{tl,tr,bl,br}=quad;
       const xs=[tl.x,tr.x,bl.x,br.x],ys=[tl.y,tr.y,bl.y,br.y];
       const mnX=Math.max(0,Math.round(Math.min(...xs)));
@@ -887,6 +854,7 @@ function applyEd(){
         const cc=document.createElement('canvas');
         cc.width=cw;cc.height=ch;
         const cctx=cc.getContext('2d');
+        // Clip to quad polygon (offset by bounding box)
         cctx.beginPath();
         cctx.moveTo(tl.x-mnX,tl.y-mnY);cctx.lineTo(tr.x-mnX,tr.y-mnY);
         cctx.lineTo(br.x-mnX,br.y-mnY);cctx.lineTo(bl.x-mnX,bl.y-mnY);
@@ -903,11 +871,91 @@ function applyEd(){
   img.src=src;
 }
 
+/* ═══ CANVAS COORDS ═══ */
+function canvasPt(clientX,clientY){
+  const r=ec.getBoundingClientRect();
+  // getBoundingClientRect accounts for CSS transform+position
+  const x=(clientX-r.left)*(ec.width/r.width);
+  const y=(clientY-r.top)*(ec.height/r.height);
+  return{x, y};
+}
+function nearQuadCorner(ix,iy){
+  if(!quad)return null;
+  const hs=Math.max(22,32/edSc);
+  for(const name of['tl','tr','bl','br']){
+    const p=quad[name];
+    if(Math.hypot(ix-p.x,iy-p.y)<hs) return name;
+  }
+  return null;
+}
+// Returns edge name ('top','right','bottom','left') if near midpoint handle
+function nearEdgeMid(ix,iy){
+  if(!quad)return null;
+  const hs=Math.max(22,32/edSc);
+  const{tl,tr,bl,br}=quad;
+  const mids={
+    top:   {x:(tl.x+tr.x)/2, y:(tl.y+tr.y)/2},
+    right: {x:(tr.x+br.x)/2, y:(tr.y+br.y)/2},
+    bottom:{x:(bl.x+br.x)/2, y:(bl.y+br.y)/2},
+    left:  {x:(tl.x+bl.x)/2, y:(tl.y+bl.y)/2},
+  };
+  for(const[name,p] of Object.entries(mids)){
+    if(Math.hypot(ix-p.x,iy-p.y)<hs) return name;
+  }
+  return null;
+}
+// Move an edge by shifting both its corner points perpendicularly
+function moveEdgeMid(edgeName, ix, iy){
+  if(!quad)return;
+  const{tl,tr,bl,br}=quad;
+  if(edgeName==='top'){
+    // top edge: tl+tr move to follow finger Y (keep X)
+    const dy=iy-(tl.y+tr.y)/2;
+    quad.tl={x:tl.x,y:tl.y+dy};
+    quad.tr={x:tr.x,y:tr.y+dy};
+  } else if(edgeName==='bottom'){
+    const dy=iy-(bl.y+br.y)/2;
+    quad.bl={x:bl.x,y:bl.y+dy};
+    quad.br={x:br.x,y:br.y+dy};
+  } else if(edgeName==='left'){
+    const dx=ix-(tl.x+bl.x)/2;
+    quad.tl={x:tl.x+dx,y:tl.y};
+    quad.bl={x:bl.x+dx,y:bl.y};
+  } else if(edgeName==='right'){
+    const dx=ix-(tr.x+br.x)/2;
+    quad.tr={x:tr.x+dx,y:tr.y};
+    quad.br={x:br.x+dx,y:br.y};
+  }
+}
+function isInsideQuad(ix,iy){
+  if(!quad)return false;
+  const{tl,tr,bl,br}=quad;
+  // Simple point-in-polygon check
+  const pts=[tl,tr,br,bl];
+  let inside=false;
+  for(let i=0,j=pts.length-1;i<pts.length;j=i++){
+    const xi=pts[i].x,yi=pts[i].y,xj=pts[j].x,yj=pts[j].y;
+    if(((yi>iy)!==(yj>iy))&&(ix<(xj-xi)*(iy-yi)/(yj-yi)+xi)) inside=!inside;
+  }
+  return inside;
+}
+function moveQuadCorner(name,ix,iy){
+  if(!quad)return;
+  quad[name]={x:ix,y:iy};
+}
+// Brush stroke: array of points collected during finger move
+let brushPoints = [];
+// Rect redact state
+let rRect=null; // {x,y,w,h} in image coords
+let rRectDragCorner=null, rRectPanStart=null, rRectAtPan=null;
+
 function commitBrushStroke(){
   if(!brushPoints.length) return;
+  // Snapshot points and radius NOW before any async — prevents bug where
+  // brushPoints get cleared before img.onload fires
   const pts=[...brushPoints];
   const r=brushRadius;
-  brushPoints=[];
+  brushPoints=[]; // clear immediately so next stroke starts fresh
   const src=history[history.length-1]||pages[edIdx].cur;
   const img=new Image();
   img.onload=()=>{
@@ -928,81 +976,9 @@ function commitBrushStroke(){
     });
     const newUrl=c.toDataURL('image/jpeg',0.92);
     history.push(newUrl);
-    redrawEc(newUrl);
+    redrawEc(newUrl); // pass url directly — avoids async race
   };
   img.src=src;
-}
-
-function canvasPt(clientX,clientY){
-  const r=ec.getBoundingClientRect();
-  const x=(clientX-r.left)*(ec.width/r.width);
-  const y=(clientY-r.top)*(ec.height/r.height);
-  return{x:Math.max(0,Math.min(ec.width,x)), y:Math.max(0,Math.min(ec.height,y))};
-}
-
-function nearQuadCorner(ix,iy){
-  if(!quad)return null;
-  const hs=Math.max(22,32/edSc);
-  for(const name of['tl','tr','bl','br']){
-    const p=quad[name];
-    if(Math.hypot(ix-p.x,iy-p.y)<hs) return name;
-  }
-  return null;
-}
-
-function nearEdgeMid(ix,iy){
-  if(!quad)return null;
-  const hs=Math.max(22,32/edSc);
-  const{tl,tr,bl,br}=quad;
-  const mids={
-    top:   {x:(tl.x+tr.x)/2, y:(tl.y+tr.y)/2},
-    right: {x:(tr.x+br.x)/2, y:(tr.y+br.y)/2},
-    bottom:{x:(bl.x+br.x)/2, y:(bl.y+br.y)/2},
-    left:  {x:(tl.x+bl.x)/2, y:(tl.y+bl.y)/2},
-  };
-  for(const[name,p] of Object.entries(mids)){
-    if(Math.hypot(ix-p.x,iy-p.y)<hs) return name;
-  }
-  return null;
-}
-
-function moveEdgeMid(edgeName, ix, iy){
-  if(!quad)return;
-  const{tl,tr,bl,br}=quad;
-  if(edgeName==='top'){
-    const dy=iy-(tl.y+tr.y)/2;
-    quad.tl={x:tl.x,y:tl.y+dy};
-    quad.tr={x:tr.x,y:tr.y+dy};
-  } else if(edgeName==='bottom'){
-    const dy=iy-(bl.y+br.y)/2;
-    quad.bl={x:bl.x,y:bl.y+dy};
-    quad.br={x:br.x,y:br.y+dy};
-  } else if(edgeName==='left'){
-    const dx=ix-(tl.x+bl.x)/2;
-    quad.tl={x:tl.x+dx,y:tl.y};
-    quad.bl={x:bl.x+dx,y:bl.y};
-  } else if(edgeName==='right'){
-    const dx=ix-(tr.x+br.x)/2;
-    quad.tr={x:tr.x+dx,y:tr.y};
-    quad.br={x:br.x+dx,y:br.y};
-  }
-}
-
-function isInsideQuad(ix,iy){
-  if(!quad)return false;
-  const{tl,tr,bl,br}=quad;
-  const pts=[tl,tr,br,bl];
-  let inside=false;
-  for(let i=0,j=pts.length-1;i<pts.length;j=i++){
-    const xi=pts[i].x,yi=pts[i].y,xj=pts[j].x,yj=pts[j].y;
-    if(((yi>iy)!==(yj>iy))&&(ix<(xj-xi)*(iy-yi)/(yj-yi)+xi)) inside=!inside;
-  }
-  return inside;
-}
-
-function moveQuadCorner(name,ix,iy){
-  if(!quad)return;
-  quad[name]={x:ix,y:iy};
 }
 
 function drawBrushLive(ix,iy){
@@ -1017,8 +993,77 @@ function drawBrushLive(ix,iy){
     ectx.beginPath();ectx.arc(ix,iy,r,0,Math.PI*2);ectx.fill();
   }
 }
-
+function drawRRect(){
+  if(!rRect) return;
+  const{x,y,w,h}=rRect;
+  // Fill preview
+  ectx.fillStyle='rgba(255,255,255,0.55)';
+  ectx.fillRect(x,y,w,h);
+  // Border
+  ectx.strokeStyle='#ffffff';
+  ectx.lineWidth=Math.max(2,3/edSc);
+  ectx.setLineDash([8,4]);
+  ectx.strokeRect(x,y,w,h);
+  ectx.setLineDash([]);
+  // Corners — simple small squares, no decoration
+  const cs=Math.max(8,12/edSc);
+  [[x,y],[x+w,y],[x,y+h],[x+w,y+h]].forEach(([cx,cy])=>{
+    ectx.fillStyle='#fff';
+    ectx.fillRect(cx-cs/2,cy-cs/2,cs,cs);
+  });
+  // Center cross (move handle) — shown only, apply removes it
+  const ccx=x+w/2, ccy=y+h/2;
+  const arm=Math.max(10,16/edSc);
+  ectx.strokeStyle='rgba(255,255,255,0.8)';
+  ectx.lineWidth=Math.max(1.5,2/edSc);
+  ectx.beginPath();
+  ectx.moveTo(ccx-arm,ccy);ectx.lineTo(ccx+arm,ccy);
+  ectx.moveTo(ccx,ccy-arm);ectx.lineTo(ccx,ccy+arm);
+  ectx.stroke();
+}
+function nearRRectCorner(ix,iy){
+  if(!rRect)return null;
+  const hs=Math.max(22,30/edSc);
+  const{x,y,w,h}=rRect;
+  const pts=[['tl',x,y],['tr',x+w,y],['bl',x,y+h],['br',x+w,y+h]];
+  for(const[n,cx,cy]of pts) if(Math.abs(ix-cx)<hs&&Math.abs(iy-cy)<hs) return n;
+  return null;
+}
+function moveRRectCorner(name,ix,iy){
+  if(!rRect)return;
+  const r=rRect;
+  if(name==='tl'){r.w+=r.x-ix;r.h+=r.y-iy;r.x=ix;r.y=iy;}
+  else if(name==='tr'){r.w=ix-r.x;r.h+=r.y-iy;r.y=iy;}
+  else if(name==='bl'){r.w+=r.x-ix;r.x=ix;r.h=iy-r.y;}
+  else if(name==='br'){r.w=ix-r.x;r.h=iy-r.y;}
+  // clamp
+  if(r.w<0){r.x+=r.w;r.w=Math.abs(r.w);}
+  if(r.h<0){r.y+=r.h;r.h=Math.abs(r.h);}
+}
+function isInsideRRect(ix,iy){
+  if(!rRect)return false;
+  return ix>=rRect.x&&ix<=rRect.x+rRect.w&&iy>=rRect.y&&iy<=rRect.y+rRect.h;
+}
+function commitRRect(){
+  if(!rRect)return;
+  const r={...rRect};
+  rRect=null;
+  const src=history[history.length-1]||pages[edIdx].cur;
+  const img=new Image();
+  img.onload=()=>{
+    const c=document.createElement('canvas');
+    c.width=img.width;c.height=img.height;
+    const ctx=c.getContext('2d');ctx.drawImage(img,0,0);
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(Math.round(r.x),Math.round(r.y),Math.round(r.w),Math.round(r.h));
+    const newUrl=c.toDataURL('image/jpeg',0.92);
+    history.push(newUrl);
+    redrawEc(newUrl);
+  };
+  img.src=src;
+}
 function drawLive(ix0,iy0,ix1,iy1){
+  // Coords already in image pixels
   const sx=Math.min(ix0,ix1),sy=Math.min(iy0,iy1);
   const sw=Math.abs(ix1-ix0),sh=Math.abs(iy1-iy0);
   if(tool==='redact'){
@@ -1033,6 +1078,7 @@ function drawLive(ix0,iy0,ix1,iy1){
 ec.addEventListener('touchstart',e=>{
   e.preventDefault();
   if(e.touches.length===2){
+    // Pinch start
     const t0=e.touches[0],t1=e.touches[1];
     pinch0=Math.hypot(t0.clientX-t1.clientX,t0.clientY-t1.clientY);
     pinchMidX=(t0.clientX+t1.clientX)/2;
@@ -1041,6 +1087,18 @@ ec.addEventListener('touchstart',e=>{
     return;
   }
   const p=canvasPt(e.touches[0].clientX,e.touches[0].clientY);
+  // redactRect handles
+  if(tool==='redactRect'){
+    rRectDragCorner=nearRRectCorner(p.x,p.y);
+    if(rRectDragCorner) return;
+    if(rRect && isInsideRRect(p.x,p.y)){
+      rRectPanStart={x:p.x,y:p.y};
+      rRectAtPan={...rRect};
+      return;
+    }
+    rRect=null; drawing=true; px0=p.x; py0=p.y; px1=p.x; py1=p.y;
+    return;
+  }
   dragCorner=nearQuadCorner(p.x,p.y);
   if(dragCorner){ dragEdge=null; return; }
   dragEdge=nearEdgeMid(p.x,p.y);
@@ -1067,6 +1125,7 @@ ec.addEventListener('touchmove',e=>{
     const newZ=Math.max(0.5,Math.min(6,vZ*(d/pinch0)));
     const newMidX=(t0.clientX+t1.clientX)/2;
     const newMidY=(t0.clientY+t1.clientY)/2;
+    // Zoom toward pinch midpoint
     vX += (newMidX-pinchMidX) + (newMidX - (parseFloat(ec.style.left)||0) - parseFloat(ec.style.width)/2) * (newZ/vZ-1);
     vY += (newMidY-pinchMidY) + (newMidY - (parseFloat(ec.style.top)||0)  - parseFloat(ec.style.height)/2) * (newZ/vZ-1);
     vZ=newZ;
@@ -1077,6 +1136,16 @@ ec.addEventListener('touchmove',e=>{
     vX=vXatPan+(e.touches[0].clientX-vpanStart.x);
     vY=vYatPan+(e.touches[0].clientY-vpanStart.y);
     applyViewport(); return;
+  }
+  if(rRectDragCorner){
+    const p=canvasPt(e.touches[0].clientX,e.touches[0].clientY);
+    moveRRectCorner(rRectDragCorner,p.x,p.y);redrawEc();return;
+  }
+  if(rRectPanStart){
+    const p=canvasPt(e.touches[0].clientX,e.touches[0].clientY);
+    const dx=p.x-rRectPanStart.x,dy=p.y-rRectPanStart.y;
+    rRect={x:rRectAtPan.x+dx,y:rRectAtPan.y+dy,w:rRectAtPan.w,h:rRectAtPan.h};
+    redrawEc();return;
   }
   if(dragCorner){
     const p=canvasPt(e.touches[0].clientX,e.touches[0].clientY);
@@ -1101,27 +1170,44 @@ ec.addEventListener('touchmove',e=>{
     const p=canvasPt(e.touches[0].clientX,e.touches[0].clientY);
     px1=p.x;py1=p.y;
     if(tool==='redact'){ brushPoints.push([p.x,p.y]); drawBrushLive(p.x,p.y); }
+    else if(tool==='redactRect'){
+      rRect={x:Math.min(px0,px1),y:Math.min(py0,py1),w:Math.abs(px1-px0),h:Math.abs(py1-py0)};
+      redrawEc();
+    }
     else{ redrawEc();drawLive(px0,py0,px1,py1); }
   }
 },{passive:false});
 
 ec.addEventListener('touchend',e=>{
   pinch0=null; vpanStart=null;
-  if(!drawing){ dragCorner=null; dragEdge=null; panStart=null; quadAtPanStart=null; return; }
-  drawing=false;
+  dragCorner=null; dragEdge=null;
+  panStart=null; quadAtPanStart=null;
+  rRectDragCorner=null; rRectPanStart=null;
+  if(!drawing)return; drawing=false;
   const rw=Math.abs(px1-px0),rh=Math.abs(py1-py0);
   if(rw<5||rh<5)return;
   if(tool==='redact') commitBrushStroke();
-  else if(tool==='crop'){
-    quad=rectToQuad(Math.min(px0,px1),Math.min(py0,py1),rw,rh);
+  else if(tool==='redactRect'){
+    rRect={x:Math.min(px0,px1),y:Math.min(py0,py1),w:rw,h:rh};
     redrawEc();
   }
-  dragCorner=null; dragEdge=null; panStart=null; quadAtPanStart=null;
+  else if(tool==='crop'){
+    quad=rectToQuad(Math.min(px0,px1),Math.min(py0,py1),rw,rh);
+    cropRect=null; redrawEc();
+  }
 },{passive:false});
 
 /* Mouse */
 ec.addEventListener('mousedown',e=>{
   const p=canvasPt(e.clientX,e.clientY);
+  if(tool==='redactRect'){
+    rRectDragCorner=nearRRectCorner(p.x,p.y);
+    if(rRectDragCorner) return;
+    if(rRect && isInsideRRect(p.x,p.y)){
+      rRectPanStart={x:p.x,y:p.y}; rRectAtPan={...rRect}; return;
+    }
+    rRect=null; drawing=true; px0=p.x; py0=p.y; px1=p.x; py1=p.y; return;
+  }
   dragCorner=nearQuadCorner(p.x,p.y);
   if(dragCorner){ dragEdge=null; return; }
   dragEdge=nearEdgeMid(p.x,p.y);
@@ -1137,15 +1223,20 @@ ec.addEventListener('mousedown',e=>{
     if(tool==='redact')brushPoints=[[p.x,p.y]];
   }
 });
-
 ec.addEventListener('mousemove',e=>{
   if(vpanStart){
     vX=vXatPan+(e.clientX-vpanStart.x);
     vY=vYatPan+(e.clientY-vpanStart.y);
     applyViewport();return;
   }
-  if(!drawing&&!dragCorner&&!panStart)return;
+  if(!drawing&&!dragCorner&&!dragEdge&&!panStart&&!rRectDragCorner&&!rRectPanStart)return;
   const p=canvasPt(e.clientX,e.clientY);
+  if(rRectDragCorner){moveRRectCorner(rRectDragCorner,p.x,p.y);redrawEc();return;}
+  if(rRectPanStart){
+    const dx=p.x-rRectPanStart.x,dy=p.y-rRectPanStart.y;
+    rRect={x:rRectAtPan.x+dx,y:rRectAtPan.y+dy,w:rRectAtPan.w,h:rRectAtPan.h};
+    redrawEc();return;
+  }
   if(dragCorner){moveQuadCorner(dragCorner,p.x,p.y);redrawEc();return;}
   if(dragEdge){moveEdgeMid(dragEdge,p.x,p.y);redrawEc();return;}
   if(panStart&&quadAtPanStart){
@@ -1160,21 +1251,45 @@ ec.addEventListener('mousemove',e=>{
   }
   px1=p.x;py1=p.y;
   if(tool==='redact'){ brushPoints.push([p.x,p.y]); drawBrushLive(p.x,p.y); }
-  else{ redrawEc();drawLive(px0,py0,px1,py1); }
-});
-
-ec.addEventListener('mouseup',e=>{
-  dragCorner=null; dragEdge=null; panStart=null; quadAtPanStart=null; vpanStart=null;
-  if(!drawing)return;
-  drawing=false;
-  const rw=Math.abs(px1-px0),rh=Math.abs(py1-py0);
-  if(rw<5||rh<5)return;
-  if(tool==='redact')commitBrushStroke();
-  else if(tool==='crop'){
-    quad=rectToQuad(Math.min(px0,px1),Math.min(py0,py1),rw,rh);
+  else if(tool==='redactRect'){
+    rRect={x:Math.min(px0,px1),y:Math.min(py0,py1),w:Math.abs(px1-px0),h:Math.abs(py1-py0)};
     redrawEc();
   }
+  else{ redrawEc();drawLive(px0,py0,px1,py1); }
 });
+ec.addEventListener('mouseup',e=>{
+  dragCorner=null;
+  if(!drawing)return;drawing=false;
+  const rw=Math.abs(px1-px0),rh=Math.abs(py1-py0);
+  if(rw<5||rh<5)return;
+  panStart=null; quadAtPanStart=null; vpanStart=null; dragEdge=null;
+  rRectDragCorner=null; rRectPanStart=null;
+  if(tool==='redact')commitBrushStroke();
+  else if(tool==='redactRect'){
+    rRect={x:Math.min(px0,px1),y:Math.min(py0,py1),w:rw,h:rh};
+    redrawEc();
+  }
+  else if(tool==='crop'){
+    quad=rectToQuad(Math.min(px0,px1),Math.min(py0,py1),rw,rh);
+    cropRect=null;redrawEc();
+  }
+});
+
+
+
+/* ═══ DESKTOP SCROLL ZOOM ═══ */
+document.getElementById('edCanvasArea').addEventListener('wheel',e=>{
+  e.preventDefault();
+  const delta=e.deltaY>0?0.9:1.1;
+  const newZ=Math.max(0.3,Math.min(8,vZ*delta));
+  const area=document.getElementById('edCanvasArea');
+  const r=area.getBoundingClientRect();
+  const mx=e.clientX-r.left, my=e.clientY-r.top;
+  vX+=(mx-vX)*(1-newZ/vZ);
+  vY+=(my-vY)*(1-newZ/vZ);
+  vZ=newZ;
+  applyViewport();
+},{passive:false});
 
 /* ═══ PDF ═══ */
 function openPDFModal(){document.getElementById('pdfModal').classList.add('open');}
@@ -1194,6 +1309,7 @@ function exportPDF(){
   showPdfSt('Generating…','info');
   try{
     const{jsPDF}=window.jspdf;
+    const a4w=595.28,a4h=841.89;
     let doc=null;
     let i=0;
     function next(){
@@ -1208,9 +1324,12 @@ function exportPDF(){
       img.onload=()=>{
         const iw=img.naturalWidth,ih=img.naturalHeight;
         const land=iw>ih;
+        // Page size matches image aspect ratio exactly — no white padding
+        const fmt=[iw,ih]; // custom page size in pixels → convert to pt (1px=0.75pt)
         const ptW=iw*0.75, ptH=ih*0.75;
         if(!doc)doc=new jsPDF({orientation:land?'l':'p',unit:'pt',format:[ptW,ptH]});
         else doc.addPage([ptW,ptH],land?'l':'p');
+        const q=pdfQ<1?'JPEG':'JPEG';
         doc.addImage(pg.cur,pg.cur.startsWith('data:image/png')?'PNG':'JPEG',0,0,ptW,ptH,undefined,pdfQ<0.9?'FAST':'NONE');
         next();
       };
