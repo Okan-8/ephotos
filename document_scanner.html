@@ -222,7 +222,7 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
 
 <!-- TOP BAR -->
 <div class="topbar">
-  <h1>📄 Document Scanner</h1>
+  <h1>📄 Document Scanner <span style="font-weight:400;opacity:0.5;font-size:11px">— Bulut Projects</span></h1>
   <a href="index.html">← Home</a>
 </div>
 
@@ -246,8 +246,8 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
   <span style="font-size:11px;color:rgba(255,255,255,.7)" id="batchLabel">0 selected</span>
   <button class="green" onclick="batchRotate()">↻ Rotate</button>
   <button onclick="batchClearSel()">✕ Deselect</button>
+  <button onclick="batchSelectAll()">All</button>
   <div style="flex:1"></div>
-  <button onclick="batchSelectAll()" style="font-size:10px">All</button>
 </div>
 <!-- BOTTOM TOOLBAR -->
 <div class="toolbar">
@@ -260,7 +260,7 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
   <button class="tbtn" id="tbEdit" onclick="openEd(curIdx)" disabled>
     <span class="ico">✏️</span><span>Edit</span>
   </button>
-  <button class="tbtn" id="tbRotate" onclick="rotateCurrent()" disabled>
+  <button class="tbtn" id="tbRotate" onclick="selectedPages.size?batchRotate():rotateCurrent()" disabled>
     <span class="ico">↻</span><span>Rotate</span>
   </button>
   <button class="tbtn green" id="tbPDF" onclick="openPDFModal()" disabled>
@@ -358,25 +358,18 @@ function applyOrientation(img, ori, cb){
   cb(c.toDataURL('image/jpeg',0.92));
 }
 
-function autoRotLeft(dataUrl, quality, cb){
+function autoRotLeft(dataUrl, cb){
   const img=new Image();
   img.onload=()=>{
-    // Apply max dimension based on quality setting
-    const maxDims={0.6:1200, 0.8:1800, 0.92:2400, 1:99999};
-    const maxD=maxDims[quality]||1800;
-    let sw=img.height, sh=img.width; // after 90° rotation width/height swap
-    if(sw>maxD){sh=Math.round(sh*maxD/sw);sw=maxD;}
-    if(sh>maxD){sw=Math.round(sw*maxD/sh);sh=maxD;}
+    // Rotate only — no resize, full resolution kept for editing
+    // PDF export will apply quality/resize at export time
     const c=document.createElement('canvas');
-    c.width=sw; c.height=sh;
+    c.width=img.height; c.height=img.width;
     const ctx=c.getContext('2d');
     ctx.translate(c.width/2,c.height/2);
     ctx.rotate(-Math.PI/2);
-    // draw original (img.width x img.height) scaled to fit
-    const scaleX=sh/img.width, scaleY=sw/img.height;
-    ctx.scale(scaleX,scaleY);
     ctx.drawImage(img,-img.width/2,-img.height/2);
-    cb(c.toDataURL('image/jpeg',quality>=1?0.95:quality));
+    cb(c.toDataURL('image/jpeg',0.92)); // store at high quality always
   };
   img.src=dataUrl;
 }
@@ -390,11 +383,11 @@ function loadAndFix(file, cb){
         EXIF.getData(img,function(){
           const ori=EXIF.getTag(this,'Orientation')||1;
           applyOrientation(img,ori,fixed=>{
-            autoRotLeft(fixed,pdfQ,cb);
+            autoRotLeft(fixed,cb);
           });
         });
       }catch(err){
-        autoRotLeft(e.target.result,pdfQ,cb);
+        autoRotLeft(e.target.result,cb);
       }
     };
     img.src=e.target.result;
@@ -1340,7 +1333,7 @@ ec.addEventListener('mousedown',e=>{
     if(tool==='redact')brushPoints=[[p.x,p.y]];
   }
 });
-ec.addEventListener('mousemove',e=>{
+document.addEventListener('mousemove',e=>{
   if(vpanStart){
     vX=vXatPan+(e.clientX-vpanStart.x);
     vY=vYatPan+(e.clientY-vpanStart.y);
@@ -1374,13 +1367,14 @@ ec.addEventListener('mousemove',e=>{
   }
   else{ redrawEc();drawLive(px0,py0,px1,py1); }
 });
-ec.addEventListener('mouseup',e=>{
-  dragCorner=null;
-  if(!drawing)return;drawing=false;
+document.addEventListener('mouseup',e=>{
+  dragCorner=null; dragEdge=null;
+  panStart=null; quadAtPanStart=null;
+  vpanStart=null;
+  rRectDragCorner=null; rRectPanStart=null;
+  if(!drawing)return; drawing=false;
   const rw=Math.abs(px1-px0),rh=Math.abs(py1-py0);
   if(rw<5||rh<5)return;
-  panStart=null; quadAtPanStart=null; vpanStart=null; dragEdge=null;
-  rRectDragCorner=null; rRectPanStart=null;
   if(tool==='redact')commitBrushStroke();
   else if(tool==='redactRect'){
     rRect={x:Math.min(px0,px1),y:Math.min(py0,py1),w:rw,h:rh};
@@ -1439,16 +1433,22 @@ function exportPDF(){
       const pg=pages[i++];
       const img=new Image();
       img.onload=()=>{
-        const iw=img.naturalWidth,ih=img.naturalHeight;
-        const land=iw>ih;
-        // Page size matches image aspect ratio exactly — no white padding
-        const fmt=[iw,ih]; // custom page size in pixels → convert to pt (1px=0.75pt)
-        const ptW=iw*0.75, ptH=ih*0.75;
+        const maxD={0.6:1200,0.8:1800,0.92:2400,1:99999}[pdfQ]||1800;
+        let sw=img.naturalWidth, sh=img.naturalHeight;
+        if(sw>maxD||sh>maxD){
+          const ratio=Math.min(maxD/sw,maxD/sh);
+          sw=Math.round(sw*ratio); sh=Math.round(sh*ratio);
+        }
+        const tmp=document.createElement('canvas');
+        tmp.width=sw; tmp.height=sh;
+        tmp.getContext('2d').drawImage(img,0,0,sw,sh);
+        const isPng=pg.cur.startsWith('data:image/png');
+        const reencoded=tmp.toDataURL(isPng?'image/png':'image/jpeg',pdfQ>=1?0.95:pdfQ);
+        const land=sw>sh;
+        const ptW=sw*0.75, ptH=sh*0.75;
         if(!doc)doc=new jsPDF({orientation:land?'l':'p',unit:'pt',format:[ptW,ptH]});
         else doc.addPage([ptW,ptH],land?'l':'p');
-        const q=pdfQ<1?'JPEG':'JPEG';
-        const fmt2=pg.cur.startsWith('data:image/png')?'PNG':'JPEG';
-        doc.addImage(pg.cur,fmt2,0,0,ptW,ptH,undefined,'FAST');
+        doc.addImage(reencoded,isPng?'PNG':'JPEG',0,0,ptW,ptH,undefined,'FAST');
         next();
       };
       img.onerror=()=>next();
@@ -1457,6 +1457,46 @@ function exportPDF(){
     next();
   }catch(e){console.error(e);showPdfSt('Error: '+e.message,'err');}
 }
+
+/* ═══ ANA EKRAN SCROLL ZOOM ═══ */
+(()=>{
+  let scale=1, tx=0, ty=0;
+  const bp=document.getElementById('bigPreview');
+  const area=document.getElementById('previewArea');
+  area.addEventListener('wheel',e=>{
+    e.preventDefault();
+    const delta=e.deltaY>0?0.85:1.18;
+    const newScale=Math.max(0.5,Math.min(8,scale*delta));
+    const r=area.getBoundingClientRect();
+    const mx=e.clientX-r.left, my=e.clientY-r.top;
+    tx+=(mx-tx)*(1-newScale/scale);
+    ty+=(my-ty)*(1-newScale/scale);
+    scale=newScale;
+    bp.style.transform=`scale(${scale}) translate(${tx/scale}px,${ty/scale}px)`;
+    bp.style.transformOrigin='0 0';
+  },{passive:false});
+  let dragging=false, dx=0, dy=0, txStart=0, tyStart=0;
+  area.addEventListener('mousedown',e=>{
+    if(scale<=1)return;
+    dragging=true; dx=e.clientX; dy=e.clientY; txStart=tx; tyStart=ty;
+    area.style.cursor='grabbing';
+  });
+  document.addEventListener('mousemove',e=>{
+    if(!dragging)return;
+    tx=txStart+(e.clientX-dx);
+    ty=tyStart+(e.clientY-dy);
+    bp.style.transform=`scale(${scale}) translate(${tx/scale}px,${ty/scale}px)`;
+  });
+  document.addEventListener('mouseup',()=>{
+    dragging=false; area.style.cursor='';
+  });
+  const origSelect=selectPage;
+  window.selectPage=function(idx){
+    origSelect(idx);
+    scale=1;tx=0;ty=0;
+    bp.style.transform='';
+  };
+})();
 </script>
 </body>
 </html>
