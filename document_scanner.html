@@ -245,9 +245,9 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
 <div id="batchBar">
   <span style="font-size:11px;color:rgba(255,255,255,.7)" id="batchLabel">0 selected</span>
   <button class="green" onclick="batchRotate()">↻ Rotate</button>
-  <button onclick="batchClearSel()">✕ Deselect</button>
   <button onclick="batchSelectAll()">All</button>
-  <div style="flex:1"></div>
+  <button onclick="batchClearSel()">✕ Deselect</button>
+    <div style="flex:1"></div>
 </div>
 <!-- BOTTOM TOOLBAR -->
 <div class="toolbar">
@@ -314,8 +314,8 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
     <h3>📄 Export PDF</h3>
     <input type="text" id="pdfName" value="document" placeholder="File name">
     <div class="q-row">
-      <div class="q-btn active" data-q="0.6" onclick="setQ(this)">Small</div>
-      <div class="q-btn" data-q="0.8" onclick="setQ(this)">Medium</div>
+      <div class="q-btn" data-q="0.6" onclick="setQ(this)">Small</div>
+      <div class="q-btn active" data-q="0.8" onclick="setQ(this)">Medium</div>
       <div class="q-btn" data-q="0.92" onclick="setQ(this)">High</div>
       <div class="q-btn" data-q="1" onclick="setQ(this)">Full</div>
     </div>
@@ -335,7 +335,7 @@ if(sessionStorage.getItem('bulut_auth')!=='1') window.location.href='index.html'
 /* ═══ STATE ═══ */
 const pages = [];
 let curIdx  = null;
-let pdfQ    = 0.6;
+let pdfQ    = 0.8;
 let tReady  = false;
 const selectedPages = new Set();
 
