@@ -1447,8 +1447,11 @@ function openPDFModal(){
   const inp=document.getElementById('pdfName');
   inp.value=ts;
   document.getElementById('pdfModal').classList.add('open');
-  // Select all text so first keystroke clears it
-  setTimeout(()=>{inp.select();},80);
+  // Select all text — works on both desktop and mobile
+  requestAnimationFrame(()=>{
+    inp.focus();
+    inp.setSelectionRange(0, inp.value.length);
+  });
 }
 function closePDFModal(){document.getElementById('pdfModal').classList.remove('open');}
 function setPdfColor(el,mode){
@@ -1600,26 +1603,59 @@ function exportPDF(){
     dragging=false; area.style.cursor='';
   });
 
-  // Mobile pinch zoom for main preview
-  let mPinch0=null, mPinchScale=1, mPinchTx=0, mPinchTy=0;
+  // Mobile touch: pinch zoom + 1-finger pan
+  let mPinch0=null, mPinchScale=1, mPinchTx=0, mPinchTy=0, mPinchMidX=0, mPinchMidY=0;
+  let mPan=false, mPanStartX=0, mPanStartY=0, mPanTxStart=0, mPanTyStart=0;
+
   area.addEventListener('touchstart',e=>{
     if(e.touches.length===2){
+      // Pinch start — record both fingers and current state
+      mPan=false;
       const t0=e.touches[0],t1=e.touches[1];
       mPinch0=Math.hypot(t0.clientX-t1.clientX,t0.clientY-t1.clientY);
+      mPinchMidX=(t0.clientX+t1.clientX)/2;
+      mPinchMidY=(t0.clientY+t1.clientY)/2;
       mPinchScale=scale; mPinchTx=tx; mPinchTy=ty;
       e.preventDefault();
+    } else if(e.touches.length===1){
+      // 1-finger pan start (only meaningful when zoomed in)
+      mPinch0=null;
+      mPan=true;
+      mPanStartX=e.touches[0].clientX;
+      mPanStartY=e.touches[0].clientY;
+      mPanTxStart=tx; mPanTyStart=ty;
     }
   },{passive:false});
+
   area.addEventListener('touchmove',e=>{
-    if(e.touches.length===2&&mPinch0){
-      e.preventDefault();
+    e.preventDefault();
+    if(e.touches.length===2&&mPinch0!==null){
       const t0=e.touches[0],t1=e.touches[1];
       const d=Math.hypot(t0.clientX-t1.clientX,t0.clientY-t1.clientY);
-      scale=Math.max(0.5,Math.min(8,mPinchScale*(d/mPinch0)));
+      const newScale=Math.max(0.5,Math.min(8,mPinchScale*(d/mPinch0)));
+      // Zoom toward pinch midpoint
+      const r=area.getBoundingClientRect();
+      const newMidX=(t0.clientX+t1.clientX)/2;
+      const newMidY=(t0.clientY+t1.clientY)/2;
+      const midDx=newMidX-mPinchMidX;
+      const midDy=newMidY-mPinchMidY;
+      const originX=mPinchMidX-r.left-r.width/2;
+      const originY=mPinchMidY-r.top-r.height/2;
+      tx=mPinchTx + midDx + originX*(newScale/mPinchScale-1)*-1 + (newMidX-mPinchMidX);
+      ty=mPinchTy + midDy + originY*(newScale/mPinchScale-1)*-1 + (newMidY-mPinchMidY);
+      scale=newScale;
+      applyTransform();
+    } else if(e.touches.length===1&&mPan){
+      tx=mPanTxStart+(e.touches[0].clientX-mPanStartX);
+      ty=mPanTyStart+(e.touches[0].clientY-mPanStartY);
       applyTransform();
     }
   },{passive:false});
-  area.addEventListener('touchend',()=>{mPinch0=null;});
+
+  area.addEventListener('touchend',e=>{
+    if(e.touches.length<2) mPinch0=null;
+    if(e.touches.length===0) mPan=false;
+  });
 
   const origSelect=selectPage;
   window.selectPage=function(idx){
