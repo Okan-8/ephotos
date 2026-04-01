@@ -328,8 +328,8 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
       <div class="q-btn" data-q="1" onclick="setQ(this)">Full</div>
     </div>
     <div style="display:flex;gap:6px;margin-bottom:16px;">
-      <div class="q-btn active" id="pdfColorBtn" onclick="setPdfColor(this,'color')">🎨 Color</div>
-      <div class="q-btn" id="pdfBWBtn" onclick="setPdfColor(this,'bw')">📄 B&amp;W Doc</div>
+      <div class="q-btn active" id="pdfColorBtn" onclick="setPdfColor(this,'color')">Original</div>
+      <div class="q-btn" id="pdfBWBtn" onclick="setPdfColor(this,'bw')">Black-White</div>
     </div>
     <div class="pdf-btns">
       <button class="pdf-cancel" onclick="closePDFModal()">Cancel</button>
@@ -851,6 +851,14 @@ function setTool(t){
   document.getElementById('redactBar').style.display=(t==='redact')?'flex':'none';
   document.getElementById('redactColorBar').style.display=(t==='redactRect')?'flex':'none';
   redrawEc();
+}
+
+function closeEd(){
+  edModal.classList.remove('open');
+  tool='none'; rRect=null; quad=null; brushPoints=[];
+  document.querySelectorAll('.etbtn').forEach(b=>b.classList.remove('on'));
+  document.getElementById('redactBar').style.display='none';
+  document.getElementById('redactColorBar').style.display='none';
 }
 
 function setRedactColor(c){
@@ -1487,16 +1495,35 @@ function exportPDF(){
         const tmpCtx=tmp.getContext('2d');
         tmpCtx.drawImage(img,0,0,sw,sh);
 
-        // B&W document mode: enhance contrast, desaturate, whiten background
+        // B&W document mode: aggressive shadow removal + contrast boost
         if(pdfColorMode==='bw'){
           const id=tmpCtx.getImageData(0,0,sw,sh);
           const d=id.data;
+
+          // Pass 1: find local brightness reference (sample grid for performance)
+          // We use a simple adaptive approach: find the 90th percentile brightness
+          const samples=[];
+          const step=Math.max(1,Math.floor(sw*sh/4000));
+          for(let i=0;i<d.length;i+=4*step){
+            const g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+            samples.push(g);
+          }
+          samples.sort((a,b)=>a-b);
+          // 90th percentile = reference "white" of the page
+          const refWhite=samples[Math.floor(samples.length*0.90)]||200;
+
+          // Pass 2: normalize each pixel
           for(let i=0;i<d.length;i+=4){
-            // Luminance-weighted grayscale
             const gray=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
-            // Enhance contrast: push light pixels to white, dark to darker
-            const enhanced=gray>180?255:gray>120?Math.round(gray*1.1):Math.round(gray*0.85);
-            const final=Math.max(0,Math.min(255,enhanced));
+            // Normalize: map refWhite→255, stretch contrast
+            let norm=(gray/refWhite)*255;
+            // Aggressive curve: push near-white to full white, darken text
+            let final;
+            if(norm>210) final=255;                          // background → pure white
+            else if(norm>160) final=Math.round(200+(norm-160)*(55/50)); // light gray → white
+            else if(norm>80)  final=Math.round(norm*0.7);   // mid → compress
+            else              final=Math.round(norm*0.5);   // dark text → darker
+            final=Math.max(0,Math.min(255,final));
             d[i]=d[i+1]=d[i+2]=final;
           }
           tmpCtx.putImageData(id,0,0);
