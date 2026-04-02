@@ -14,6 +14,7 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
 .tabs{background:#0d1b35;padding:6px 10px;display:flex;gap:6px;align-items:center;flex-shrink:0;}
 .tab{padding:6px 14px;border:1.5px solid rgba(255,255,255,.3);border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:#fff;}
 .tab.on{background:#27ae60;border-color:#27ae60;}
+.tab:disabled{opacity:0.5;cursor:not-allowed;}
 .hint{color:rgba(255,255,255,.5);font-size:10px;margin-left:6px;}
 .imgwrap{flex:1;overflow:auto;background:#111;display:flex;align-items:flex-start;justify-content:center;padding:10px;position:relative;}
 #ocrImg{max-width:100%;height:auto;display:block;user-select:text;-webkit-user-select:text;}
@@ -38,9 +39,9 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
 </div>
 
 <div class="tabs" id="tabs" style="display:none;">
-  <button class="tab on" id="tabFull" onclick="setMode('full')">🗒 Tam Sayfa</button>
-  <button class="tab"    id="tabArea" onclick="setMode('area')">✂️ Alan Seç</button>
-  <span class="hint" id="hint"></span>
+  <button class="tab" id="tabFull" onclick="scanFullPage()">🗒 Tam Sayfa</button>
+  <button class="tab" id="tabArea" onclick="enableAreaSelection()">✂️ Alan Seç</button>
+  <span class="hint" id="hint">⬅️ Tarama başlatmak için butona tıkla</span>
 </div>
 
 <div class="imgwrap" id="imgwrap">
@@ -66,7 +67,7 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
 <script>
 const isSafari=/^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 let imageDataUrl=null;
-let mode='full';
+let areaSelectionActive=false;
 let selecting=false, sx=0,sy=0,ex=0,ey=0;
 
 // Load image from sessionStorage
@@ -79,133 +80,271 @@ window.addEventListener('load',()=>{
   const img=document.getElementById('ocrImg');
   img.style.display='block';
   img.src=data;
-  setMode('full');
-});
-
-function setMode(m){
-  mode=m;
-  document.getElementById('tabFull').classList.toggle('on',m==='full');
-  document.getElementById('tabArea').classList.toggle('on',m==='area');
-  const hint=document.getElementById('hint');
   showImage();
-  if(m==='full'){
-    hint.textContent=isSafari?'Görsele uzun bas → metni seç':'Otomatik tanınıyor…';
-    document.getElementById('selCanvas').style.display='none';
-    if(!isSafari) runTesseract(imageDataUrl);
-  } else {
-    hint.textContent='Metin alanını parmağınla/mouse ile çiz';
-    initSelCanvas();
-  }
-}
+});
 
 function showImage(){
   document.getElementById('imgwrap').style.display='flex';
   document.getElementById('textwrap').style.display='none';
   const img=document.getElementById('ocrImg');
-  img.src=imageDataUrl;
-  img.style.display='block';
+  if(img && imageDataUrl) {
+    img.src=imageDataUrl;
+    img.style.display='block';
+  }
+  // Alan seçimini devre dışı bırak
+  disableAreaSelection();
+}
+
+// Tam sayfa tarama
+async function scanFullPage() {
+  if(!imageDataUrl) {
+    setStatus('❌ Görüntü bulunamadı!');
+    return;
+  }
+  
+  // Buton görünümünü güncelle
+  document.getElementById('tabFull').classList.add('on');
+  document.getElementById('tabArea').classList.remove('on');
+  disableAreaSelection();
+  
+  if(isSafari) {
+    document.getElementById('hint').textContent='Görsele uzun bas → metni seç';
+    setStatus('📱 Görsele uzun basın ve "Metni Seç" seçeneğini kullanın');
+    setTimeout(()=>setStatus(''),3000);
+  } else {
+    await runTesseract(imageDataUrl);
+  }
+}
+
+// Alan seçim modunu aktifleştir
+function enableAreaSelection() {
+  if(!imageDataUrl) return;
+  
+  areaSelectionActive = true;
+  document.getElementById('tabArea').classList.add('on');
+  document.getElementById('tabFull').classList.remove('on');
+  document.getElementById('hint').textContent='✂️ Metin alanını mouse/parmak ile çiz, bırakınca otomatik taranır';
+  
+  // Önce görüntüyü göster
+  showImage();
+  
+  // Canvas'ı başlat
+  initSelCanvas();
+}
+
+// Alan seçim modunu devre dışı bırak
+function disableAreaSelection() {
+  areaSelectionActive = false;
+  const canvas = document.getElementById('selCanvas');
+  if(canvas) canvas.style.display = 'none';
 }
 
 /* ── Area selection ── */
 function initSelCanvas(){
-  const img=document.getElementById('ocrImg');
-  const sc=document.getElementById('selCanvas');
+  const img = document.getElementById('ocrImg');
+  const sc = document.getElementById('selCanvas');
+  
   function resize(){
-    sc.width=img.offsetWidth; sc.height=img.offsetHeight;
-    sc.style.width=img.offsetWidth+'px'; sc.style.height=img.offsetHeight+'px';
-    sc.style.left=img.offsetLeft+'px'; sc.style.top=img.offsetTop+'px';
-    sc.style.display='block';
+    const rect = img.getBoundingClientRect();
+    const wrapRect = document.getElementById('imgwrap').getBoundingClientRect();
+    sc.width = img.offsetWidth;
+    sc.height = img.offsetHeight;
+    sc.style.width = img.offsetWidth + 'px';
+    sc.style.height = img.offsetHeight + 'px';
+    sc.style.left = (rect.left - wrapRect.left) + 'px';
+    sc.style.top = (rect.top - wrapRect.top) + 'px';
+    sc.style.display = 'block';
   }
-  if(img.complete&&img.naturalWidth) resize();
-  else img.onload=resize;
-
-  function pos(e){
-    const r=sc.getBoundingClientRect();
-    const cx=e.touches?e.touches[0].clientX:e.clientX;
-    const cy=e.touches?e.touches[0].clientY:e.clientY;
-    return{x:cx-r.left,y:cy-r.top};
+  
+  if(img.complete && img.naturalWidth) resize();
+  else img.onload = resize;
+  
+  window.addEventListener('resize', resize);
+  
+  function getPos(e){
+    const rect = sc.getBoundingClientRect();
+    let cx, cy;
+    if(e.touches) {
+      cx = e.touches[0].clientX;
+      cy = e.touches[0].clientY;
+    } else {
+      cx = e.clientX;
+      cy = e.clientY;
+    }
+    return { x: cx - rect.left, y: cy - rect.top };
   }
-  function draw(){
-    const ctx=sc.getContext('2d');
-    ctx.clearRect(0,0,sc.width,sc.height);
-    ctx.fillStyle='rgba(0,0,0,0.4)';
-    ctx.fillRect(0,0,sc.width,sc.height);
-    const x=Math.min(sx,ex),y=Math.min(sy,ey),w=Math.abs(ex-sx),h=Math.abs(ey-sy);
-    ctx.clearRect(x,y,w,h);
-    ctx.strokeStyle='#27ae60';ctx.lineWidth=2;ctx.setLineDash([6,3]);
-    ctx.strokeRect(x,y,w,h);ctx.setLineDash([]);
+  
+  function drawSelection(){
+    const ctx = sc.getContext('2d');
+    ctx.clearRect(0, 0, sc.width, sc.height);
+    // Yarı saydam koyu overlay
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(0, 0, sc.width, sc.height);
+    
+    const x = Math.min(sx, ex);
+    const y = Math.min(sy, ey);
+    const w = Math.abs(ex - sx);
+    const h = Math.abs(ey - sy);
+    
+    // Seçili alanı temizle (saydam yap)
+    ctx.clearRect(x, y, w, h);
+    
+    // Kesikli çizgi ile çevrele
+    ctx.strokeStyle = '#27ae60';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([8, 6]);
+    ctx.strokeRect(x, y, w, h);
+    ctx.setLineDash([]);
+    
+    // Küçük tutma noktaları
+    ctx.fillStyle = '#27ae60';
+    ctx.fillRect(x-3, y-3, 6, 6);
+    ctx.fillRect(x+w-3, y-3, 6, 6);
+    ctx.fillRect(x-3, y+h-3, 6, 6);
+    ctx.fillRect(x+w-3, y+h-3, 6, 6);
   }
-  // Clone to remove old listeners
-  const sc2=sc.cloneNode(false);
-  sc.parentNode.replaceChild(sc2,sc);
-  const sc3=document.getElementById('selCanvas');
-  sc3.style.cssText=sc.style.cssText;
-  sc3.width=sc.width; sc3.height=sc.height;
-  sc3.addEventListener('mousedown',e=>{const p=pos(e);sx=p.x;sy=p.y;ex=p.x;ey=p.y;selecting=true;});
-  sc3.addEventListener('mousemove',e=>{if(!selecting)return;const p=pos(e);ex=p.x;ey=p.y;draw();});
-  sc3.addEventListener('mouseup',e=>{if(!selecting)return;selecting=false;cropAndOcr();});
-  sc3.addEventListener('touchstart',e=>{e.preventDefault();const p=pos(e);sx=p.x;sy=p.y;ex=p.x;ey=p.y;selecting=true;},{passive:false});
-  sc3.addEventListener('touchmove',e=>{if(!selecting)return;e.preventDefault();const p=pos(e);ex=p.x;ey=p.y;draw();},{passive:false});
-  sc3.addEventListener('touchend',e=>{if(!selecting)return;selecting=false;cropAndOcr();});
+  
+  // Event listeners
+  const newCanvas = sc.cloneNode(false);
+  sc.parentNode.replaceChild(newCanvas, sc);
+  const canvas = document.getElementById('selCanvas');
+  canvas.style.cssText = sc.style.cssText;
+  canvas.width = sc.width;
+  canvas.height = sc.height;
+  
+  canvas.addEventListener('mousedown', (e) => {
+    if(!areaSelectionActive) return;
+    e.preventDefault();
+    const pos = getPos(e);
+    sx = pos.x;
+    sy = pos.y;
+    ex = pos.x;
+    ey = pos.y;
+    selecting = true;
+  });
+  
+  canvas.addEventListener('mousemove', (e) => {
+    if(!selecting || !areaSelectionActive) return;
+    e.preventDefault();
+    const pos = getPos(e);
+    ex = Math.min(Math.max(pos.x, 0), canvas.width);
+    ey = Math.min(Math.max(pos.y, 0), canvas.height);
+    drawSelection();
+  });
+  
+  canvas.addEventListener('mouseup', () => {
+    if(!selecting || !areaSelectionActive) return;
+    selecting = false;
+    cropAndOcr();
+  });
+  
+  // Mobil touch events
+  canvas.addEventListener('touchstart', (e) => {
+    if(!areaSelectionActive) return;
+    e.preventDefault();
+    const pos = getPos(e);
+    sx = pos.x;
+    sy = pos.y;
+    ex = pos.x;
+    ey = pos.y;
+    selecting = true;
+  }, {passive: false});
+  
+  canvas.addEventListener('touchmove', (e) => {
+    if(!selecting || !areaSelectionActive) return;
+    e.preventDefault();
+    const pos = getPos(e);
+    ex = Math.min(Math.max(pos.x, 0), canvas.width);
+    ey = Math.min(Math.max(pos.y, 0), canvas.height);
+    drawSelection();
+  }, {passive: false});
+  
+  canvas.addEventListener('touchend', (e) => {
+    if(!selecting || !areaSelectionActive) return;
+    e.preventDefault();
+    selecting = false;
+    cropAndOcr();
+  });
 }
 
 function cropAndOcr(){
-  const img=document.getElementById('ocrImg');
-  const sc=document.getElementById('selCanvas');
-  const w=Math.abs(ex-sx),h=Math.abs(ey-sy);
-  if(w<10||h<10)return;
-  const scaleX=img.naturalWidth/img.offsetWidth;
-  const scaleY=img.naturalHeight/img.offsetHeight;
-  const cx=Math.round(Math.min(sx,ex)*scaleX), cy=Math.round(Math.min(sy,ey)*scaleY);
-  const cw=Math.round(w*scaleX), ch=Math.round(h*scaleY);
-  const src=new Image(); src.src=imageDataUrl;
-  src.onload=()=>{
-    const c=document.createElement('canvas');
-    c.width=cw; c.height=ch;
-    c.getContext('2d').drawImage(src,cx,cy,cw,ch,0,0,cw,ch);
-    const cropped=c.toDataURL('image/jpeg',0.95);
+  const img = document.getElementById('ocrImg');
+  const canvas = document.getElementById('selCanvas');
+  const w = Math.abs(ex - sx);
+  const h = Math.abs(ey - sy);
+  
+  if(w < 10 || h < 10) {
+    setStatus('❌ Lütfen daha büyük bir alan seçin');
+    setTimeout(()=>setStatus(''),2000);
+    return;
+  }
+  
+  const scaleX = img.naturalWidth / img.offsetWidth;
+  const scaleY = img.naturalHeight / img.offsetHeight;
+  const cropX = Math.round(Math.min(sx, ex) * scaleX);
+  const cropY = Math.round(Math.min(sy, ey) * scaleY);
+  const cropW = Math.round(w * scaleX);
+  const cropH = Math.round(h * scaleY);
+  
+  const src = new Image();
+  src.src = imageDataUrl;
+  src.onload = () => {
+    const c = document.createElement('canvas');
+    c.width = cropW;
+    c.height = cropH;
+    c.getContext('2d').drawImage(src, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+    const cropped = c.toDataURL('image/jpeg', 0.95);
+    
     if(isSafari){
-      // Show cropped img for Live Text
-      img.src=cropped;
-      sc.style.display='none';
-      document.getElementById('hint').textContent='Görsele uzun bas → metni seç';
+      const imgEl = document.getElementById('ocrImg');
+      imgEl.src = cropped;
+      disableAreaSelection();
+      document.getElementById('hint').textContent = 'Görsele uzun bas → metni seç';
+      setStatus('📱 Seçili alana uzun basın ve "Metni Seç" seçeneğini kullanın');
+      setTimeout(()=>setStatus(''),3000);
     } else {
       runTesseract(cropped);
     }
   };
 }
 
-/* ── Tesseract (non-Safari fallback) ── */
+/* ── Tesseract OCR ── */
 function setStatus(msg){
-  const el=document.getElementById('status');
-  el.textContent=msg; el.style.display=msg?'block':'none';
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
 }
+
 async function runTesseract(dataUrl){
-  setStatus('⏳ Yükleniyor…');
+  setStatus('⏳ OCR motoru hazırlanıyor...');
   try{
     if(!window.Tesseract){
+      setStatus('⏳ İlk kez yükleniyor (15MB), lütfen bekleyin...');
       await new Promise((res,rej)=>{
-        const s=document.createElement('script');
-        s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-        s.onload=res; s.onerror=rej;
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+        s.onload = res;
+        s.onerror = rej;
         document.head.appendChild(s);
       });
     }
-    setStatus('⏳ Metin tanınıyor…');
-    const result=await Tesseract.recognize(dataUrl,'tur+eng',{logger:()=>{}});
-    const text=result.data.text.trim();
-    document.getElementById('ocrText').value=text||'(Metin bulunamadı)';
-    document.getElementById('imgwrap').style.display='none';
-    document.getElementById('textwrap').style.display='flex';
-    setStatus('');
-  }catch(err){
-    setStatus('Hata: '+err.message);
+    setStatus('⏳ Metin tanınıyor...');
+    const result = await Tesseract.recognize(dataUrl, 'tur+eng', { logger: () => {} });
+    const text = result.data.text.trim();
+    document.getElementById('ocrText').value = text || '(Metin bulunamadı)';
+    document.getElementById('imgwrap').style.display = 'none';
+    document.getElementById('textwrap').style.display = 'flex';
+    setStatus('✅ Tarama tamamlandı!');
+    setTimeout(()=>setStatus(''),2000);
+  } catch(err){
+    setStatus('❌ Hata: ' + err.message);
   }
 }
+
 function copyText(){
-  const t=document.getElementById('ocrText');
+  const t = document.getElementById('ocrText');
   t.select();
-  navigator.clipboard.writeText(t.value).catch(()=>document.execCommand('copy'));
+  navigator.clipboard.writeText(t.value).catch(() => document.execCommand('copy'));
   setStatus('✓ Kopyalandı!');
   setTimeout(()=>setStatus(''),2000);
 }
