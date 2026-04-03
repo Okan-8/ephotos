@@ -121,7 +121,7 @@ function setMode(m){
   } else {
     hint.textContent=isSafari?'Görsele uzun bas → Live Text ile seç':'Taranıyor…';
     document.getElementById('selCanvas').style.display='none';
-    if(!isSafari) runTesseract(imageDataUrl);
+    if(!isSafari) runTesseract(imageDataUrl, true);
   }
 }
 
@@ -219,15 +219,23 @@ function cropAndOcr(){
     const c=document.createElement('canvas');
     c.width=w; c.height=h;
     c.getContext('2d').drawImage(src,x,y,w,h,0,0,w,h);
-    const cropped=c.toDataURL('image/jpeg',0.92);
 
     if(isSafari){
-      // Replace visible image with crop → Live Text
+      // iPhone: show crop, Live Text works on it directly
+      const cropped=c.toDataURL('image/jpeg',0.95);
       img.src=cropped;
       sc.style.display='none';
       document.getElementById('hint').textContent='Görsele uzun bas → metni seç';
     } else {
-      runTesseract(cropped);
+      // Desktop: upscale crop 2x before Tesseract for better small-text accuracy
+      const scale=2;
+      const c2=document.createElement('canvas');
+      c2.width=w*scale; c2.height=h*scale;
+      const ctx2=c2.getContext('2d');
+      ctx2.imageSmoothingEnabled=true;
+      ctx2.imageSmoothingQuality='high';
+      ctx2.drawImage(c,0,0,w,h,0,0,c2.width,c2.height);
+      runTesseract(c2.toDataURL('image/jpeg',0.95));
     }
   };
 }
@@ -238,7 +246,7 @@ function setStatus(msg){
   el.textContent=msg; el.style.display=msg?'block':'none';
 }
 
-async function runTesseract(dataUrl){
+async function runTesseract(dataUrl, isFullPage=false){
   setStatus('⏳ Yükleniyor…');
   document.getElementById('scrollwrap').style.display='none';
   try{
@@ -252,6 +260,9 @@ async function runTesseract(dataUrl){
     }
     setStatus('⏳ Tanınıyor…');
     const result=await Tesseract.recognize(dataUrl,'tur+eng',{
+      // PSM 1 = automatic page segmentation (full page)
+      // PSM 6 = assume uniform block of text (cropped area)
+      tessedit_pageseg_mode: isFullPage ? '1' : '6',
       logger:m=>{
         if(m.status==='recognizing text')
           setStatus('⏳ %'+Math.round(m.progress*100));
