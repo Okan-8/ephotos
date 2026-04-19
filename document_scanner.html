@@ -376,15 +376,13 @@ function applyOrientation(img, ori, cb){
 function autoRotLeft(dataUrl, cb){
   const img=new Image();
   img.onload=()=>{
-    // Rotate only — no resize, full resolution kept for editing
-    // PDF export will apply quality/resize at export time
     const c=document.createElement('canvas');
     c.width=img.height; c.height=img.width;
     const ctx=c.getContext('2d');
     ctx.translate(c.width/2,c.height/2);
     ctx.rotate(-Math.PI/2);
     ctx.drawImage(img,-img.width/2,-img.height/2);
-    cb(c.toDataURL('image/jpeg',0.92)); // store at high quality always
+    cb(c.toDataURL('image/jpeg',0.92));
   };
   img.src=dataUrl;
 }
@@ -437,14 +435,12 @@ function showEmpty(){
 function addPages(ev){
   const files=Array.from(ev.target.files); ev.target.value='';
   if(!files.length)return;
-  // Process all files in parallel
   const results=new Array(files.length).fill(null);
   let done=0;
   files.forEach((f,i)=>{
     loadAndFix(f,url=>{
       results[i]=url;
       if(++done===files.length){
-        // Add in original order
         results.forEach(url=>pages.push({orig:url,cur:url}));
         selectPage(pages.length-1);
         renderStrip();
@@ -463,10 +459,8 @@ function selectPage(idx){
   document.getElementById('emptyState').style.display='none';
   document.getElementById('pgBadge').textContent=(idx+1)+' / '+pages.length;
   document.getElementById('pgBadge').style.display='block';
-  // nav arrows
   document.getElementById('btnPrev').style.display=idx>0?'flex':'none';
   document.getElementById('btnNext').style.display=idx<pages.length-1?'flex':'none';
-  // highlight strip
   document.querySelectorAll('.thumb').forEach((t,i)=>t.classList.toggle('active',i===idx));
   updateUI();
 }
@@ -550,7 +544,6 @@ function renderStrip(){
     t.className='thumb'+(idx===curIdx?' active':'');
     t.onclick=()=>{ if(!dragSrcIdx&&dragSrcIdx!==0) selectPage(idx); };
 
-    // Drag sort — mouse
     t.draggable=true;
     t.addEventListener('dragstart',e=>{
       dragSrcIdx=idx;
@@ -566,19 +559,17 @@ function renderStrip(){
       if(dragSrcIdx===null||dragSrcIdx===idx) return;
       const moved=pages.splice(dragSrcIdx,1)[0];
       pages.splice(idx,0,moved);
-      curIdx=idx; // follow the moved page
+      curIdx=idx;
       renderStrip();
       selectPage(curIdx);
       dragSrcIdx=null;
     });
 
-    // Drag sort — touch
     let touchDragTimer=null, touchDragActive=false, touchDragClone=null;
     t.addEventListener('touchstart',e=>{
       touchDragTimer=setTimeout(()=>{
         touchDragActive=true;
         dragSrcIdx=idx;
-        // Create visual clone
         touchDragClone=t.cloneNode(true);
         touchDragClone.style.cssText='position:fixed;z-index:9999;opacity:0.7;pointer-events:none;width:44px;height:60px;border-radius:4px;overflow:hidden;';
         document.body.appendChild(touchDragClone);
@@ -593,7 +584,6 @@ function renderStrip(){
         touchDragClone.style.left=(touch.clientX-22)+'px';
         touchDragClone.style.top=(touch.clientY-30)+'px';
       }
-      // Find target thumb under finger
       document.querySelectorAll('.thumb').forEach((el,i)=>{
         const r=el.getBoundingClientRect();
         el.style.outline=(touch.clientX>=r.left&&touch.clientX<=r.right&&touch.clientY>=r.top&&touch.clientY<=r.bottom&&i!==dragSrcIdx)?'2px solid #27ae60':'';
@@ -626,7 +616,6 @@ function renderStrip(){
     img.src=pg.cur;
     const num=document.createElement('div');
     num.className='t-num'; num.textContent=idx+1;
-    // Checkbox
     const chk=document.createElement('input');
     chk.type='checkbox'; chk.className='t-chk';
     chk.checked=selectedPages.has(idx);
@@ -640,7 +629,6 @@ function renderStrip(){
     t.append(img,num,chk);
     strip.appendChild(t);
   });
-  // Add button
   const add=document.createElement('div');
   add.className='thumb-add';
   add.innerHTML='<span style="font-size:22px">+</span><span>Add</span>';
@@ -660,15 +648,13 @@ function updateUI(){
 /* ═══ EDITOR ═══ */
 let edIdx=null, edW, edH, edSc;
 let tool='crop', history=[], cropRect=null;
-// quad = {tl,tr,bl,br} — 4 free-moving corners for skewed crop
 let quad=null;
 let brushRadius=20;
-let panStart=null, quadAtPanStart=null; // for dragging whole quad
+let panStart=null, quadAtPanStart=null;
 let drawing=false, px0,py0,px1,py1, dragCorner=null, dragEdge=null, pinch0=null;
-// Viewport pan+zoom (for canvas element positioning)
-let vZ=1, vX=0, vY=0; // zoom, translateX, translateY
-let pinchMidX=0, pinchMidY=0; // midpoint of pinch gesture
-let vpanStart=null, vXatPan=0, vYatPan=0; // 1-finger canvas pan (when no tool active)
+let vZ=1, vX=0, vY=0;
+let pinchMidX=0, pinchMidY=0;
+let vpanStart=null, vXatPan=0, vYatPan=0;
 const edModal=document.getElementById('edModal');
 const ec=document.getElementById('ec');
 const ectx=ec.getContext('2d');
@@ -681,7 +667,6 @@ function openEd(idx){
   document.getElementById('edTitle').textContent='Edit — Page '+(idx+1);
   edModal.classList.add('open');
 
-  // Wait for modal to be visible so clientWidth/Height are correct
   requestAnimationFrame(()=>{
     requestAnimationFrame(()=>{
       const img=new Image();
@@ -706,7 +691,6 @@ function fitCanvas(){
   const dispH = Math.round(edH * edSc);
   ec.style.width  = dispW + 'px';
   ec.style.height = dispH + 'px';
-  // Reset viewport
   vZ=1; vX=0; vY=0;
   applyViewport();
 }
@@ -744,16 +728,13 @@ function drawCropOverlay(){
   const lw=Math.max(1,2/edSc);
   const navy='#000000';
 
-  // ── Border: thin solid navy line with white glow underneath ──
   ectx.save();
-  // White glow / outline
   ectx.strokeStyle='rgba(255,255,255,0.7)';
   ectx.lineWidth=lw+4; ectx.setLineDash([]);
   ectx.beginPath();
   ectx.moveTo(tl.x,tl.y);ectx.lineTo(tr.x,tr.y);
   ectx.lineTo(br.x,br.y);ectx.lineTo(bl.x,bl.y);
   ectx.closePath();ectx.stroke();
-  // Navy border
   ectx.strokeStyle=navy;
   ectx.lineWidth=lw+1; ectx.setLineDash([]);
   ectx.beginPath();
@@ -762,42 +743,32 @@ function drawCropOverlay(){
   ectx.closePath();ectx.stroke();
   ectx.restore();
 
-  // ── Corner handles: hollow circle, navy stroke, transparent fill ──
   const cr=Math.max(10,14/edSc);
   [tl,tr,bl,br].forEach(p=>{
     ectx.save();
-    // White backing
     ectx.strokeStyle='rgba(255,255,255,0.8)';
     ectx.lineWidth=Math.max(2,4/edSc)+2;
     ectx.beginPath();ectx.arc(p.x,p.y,cr,0,Math.PI*2);ectx.stroke();
-    // Navy ring
     ectx.strokeStyle=navy;
     ectx.lineWidth=Math.max(2,4/edSc);
     ectx.beginPath();ectx.arc(p.x,p.y,cr,0,Math.PI*2);ectx.stroke();
     ectx.restore();
   });
 
-  // ── Edge midpoint handles: hollow rounded rect, navy stroke ──
   const edges=[
-    {a:tl,b:tr},  // top
-    {a:tr,b:br},  // right
-    {a:bl,b:br},  // bottom
-    {a:tl,b:bl},  // left
+    {a:tl,b:tr},{a:tr,b:br},{a:bl,b:br},{a:tl,b:bl},
   ];
   const rw=Math.max(20,28/edSc), rh=Math.max(10,14/edSc);
   edges.forEach(({a,b})=>{
     const mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
-    // Angle of edge
     const angle=Math.atan2(b.y-a.y,b.x-a.x);
     ectx.save();
     ectx.translate(mx,my);ectx.rotate(angle);
-    // White backing
     ectx.strokeStyle='rgba(255,255,255,0.8)';
     ectx.lineWidth=Math.max(2,3/edSc)+2;
     ectx.beginPath();
     roundRect(ectx,-rw/2,-rh/2,rw,rh,rh/2);
     ectx.stroke();
-    // Navy
     ectx.strokeStyle=navy;
     ectx.lineWidth=Math.max(2,3/edSc);
     ectx.beginPath();
@@ -806,7 +777,6 @@ function drawCropOverlay(){
     ectx.restore();
   });
 
-  // ── Center move handle: hollow circle + crosshair ──
   const ccx=(tl.x+tr.x+bl.x+br.x)/4;
   const ccy=(tl.y+tr.y+bl.y+br.y)/4;
   const ccr=Math.max(18,24/edSc);
@@ -817,7 +787,6 @@ function drawCropOverlay(){
   ectx.strokeStyle=navy;
   ectx.lineWidth=Math.max(2,3/edSc);
   ectx.beginPath();ectx.arc(ccx,ccy,ccr,0,Math.PI*2);ectx.stroke();
-  // crosshair
   const arm=ccr*0.55;
   ectx.beginPath();
   ectx.moveTo(ccx-arm,ccy);ectx.lineTo(ccx+arm,ccy);
@@ -915,7 +884,6 @@ function rotImg(deg){
 }
 
 function autoCrop(){
-  // Activate crop tool without clearing quad (we're about to set it)
   tool='crop'; rRect=null; brushPoints=[];
   document.querySelectorAll('.etbtn').forEach(b=>b.classList.remove('on'));
   document.getElementById('tCrop').classList.add('on');
@@ -935,7 +903,7 @@ function autoCrop(){
         if(x<mnX)mnX=x;if(y<mnY)mnY=y;if(x>mxX)mxX=x;if(y>mxY)mxY=y;
       }
     }
-    const pad=20; // extra inset so handles aren't right at edge
+    const pad=20;
     mnX=Math.max(0,mnX+pad);mnY=Math.max(0,mnY+pad);
     mxX=Math.min(c.width,mxX-pad);mxY=Math.min(c.height,mxY-pad);
     if(mxX-mnX>20&&mxY-mnY>20){
@@ -947,66 +915,161 @@ function autoCrop(){
   img.src=src;
 }
 
+/* ═══ PERSPECTIVE TRANSFORM HELPERS ═══
+ * Solves the 3x3 homography H such that H * [src] = [dst]
+ * for 4 point correspondences, then applies inverse warp
+ * pixel-by-pixel for correct perspective correction.
+ */
+function solveHomography(src, dst){
+  // src and dst are arrays of 4 points [{x,y}, ...]
+  // Returns 3x3 matrix as flat array [h00,h01,h02, h10,h11,h12, h20,h21,h22]
+  // Using the standard DLT (Direct Linear Transform) method
+  const A = [];
+  for(let i=0;i<4;i++){
+    const sx=src[i].x, sy=src[i].y;
+    const dx=dst[i].x, dy=dst[i].y;
+    A.push([-sx,-sy,-1, 0,0,0, dx*sx,dx*sy,dx]);
+    A.push([0,0,0, -sx,-sy,-1, dy*sx,dy*sy,dy]);
+  }
+  // Solve using SVD-free approach: normalize and use Gaussian elimination
+  // We have 8 equations, 8 unknowns (h22=1 fixed)
+  // Rearrange: last column of each row moves to RHS
+  const M = A.map(row => row.slice(0,8));
+  const b = A.map(row => -row[8]);
+
+  // Gaussian elimination with partial pivoting
+  for(let col=0;col<8;col++){
+    // Find pivot
+    let maxRow=col;
+    for(let row=col+1;row<8;row++){
+      if(Math.abs(M[row][col])>Math.abs(M[maxRow][col])) maxRow=row;
+    }
+    [M[col],M[maxRow]]=[M[maxRow],M[col]];
+    [b[col],b[maxRow]]=[b[maxRow],b[col]];
+    if(Math.abs(M[col][col])<1e-10) continue;
+    for(let row=0;row<8;row++){
+      if(row===col) continue;
+      const factor=M[row][col]/M[col][col];
+      for(let c=col;c<8;c++) M[row][c]-=factor*M[col][c];
+      b[row]-=factor*b[col];
+    }
+  }
+  const h=new Array(9);
+  for(let i=0;i<8;i++) h[i]=b[i]/M[i][i];
+  h[8]=1;
+  return h;
+}
+
+function applyHomography(H, x, y){
+  const w = H[6]*x + H[7]*y + H[8];
+  const ox = (H[0]*x + H[1]*y + H[2]) / w;
+  const oy = (H[3]*x + H[4]*y + H[5]) / w;
+  return {x:ox, y:oy};
+}
+
+function perspectiveWarp(srcCanvas, srcQuad, outW, outH){
+  // srcQuad: {tl,tr,bl,br} in source image coords
+  // outW, outH: output dimensions
+  // Returns a new canvas with the warped content
+  const dst = [
+    {x:0,     y:0},
+    {x:outW,  y:0},
+    {x:0,     y:outH},
+    {x:outW,  y:outH}
+  ];
+  const srcPts = [srcQuad.tl, srcQuad.tr, srcQuad.bl, srcQuad.br];
+
+  // Compute inverse homography: dst -> src (so we can do inverse mapping)
+  const H_inv = solveHomography(dst, srcPts);
+
+  const out = document.createElement('canvas');
+  out.width = outW; out.height = outH;
+  const octx = out.getContext('2d');
+
+  // Get source pixel data
+  const sctx = srcCanvas.getContext('2d');
+  const srcData = sctx.getImageData(0, 0, srcCanvas.width, srcCanvas.height);
+  const sd = srcData.data;
+  const sw = srcCanvas.width, sh = srcCanvas.height;
+
+  const outData = octx.createImageData(outW, outH);
+  const od = outData.data;
+
+  for(let dy=0; dy<outH; dy++){
+    for(let dx=0; dx<outW; dx++){
+      // Map output pixel back to source
+      const sp = applyHomography(H_inv, dx+0.5, dy+0.5);
+      const sx = sp.x, sy = sp.y;
+
+      // Bilinear interpolation
+      const x0=Math.floor(sx), y0=Math.floor(sy);
+      const x1=x0+1, y1=y0+1;
+      const fx=sx-x0, fy=sy-y0;
+
+      if(x0<0||y0<0||x1>=sw||y1>=sh){
+        // Out of bounds → white
+        const oi=(dy*outW+dx)*4;
+        od[oi]=od[oi+1]=od[oi+2]=255; od[oi+3]=255;
+        continue;
+      }
+
+      const i00=(y0*sw+x0)*4;
+      const i10=(y0*sw+x1)*4;
+      const i01=(y1*sw+x0)*4;
+      const i11=(y1*sw+x1)*4;
+
+      const oi=(dy*outW+dx)*4;
+      for(let c=0;c<3;c++){
+        od[oi+c]=Math.round(
+          sd[i00+c]*(1-fx)*(1-fy) +
+          sd[i10+c]*fx*(1-fy) +
+          sd[i01+c]*(1-fx)*fy +
+          sd[i11+c]*fx*fy
+        );
+      }
+      od[oi+3]=255;
+    }
+  }
+
+  octx.putImageData(outData, 0, 0);
+  return out;
+}
+
+/* ═══ APPLY EDIT ═══ */
 function applyEd(){
   // commit any pending rect redact first
-  if(rRect){ commitRRect(); return; } // commitRRect will call redrawEc, user presses Apply again for crop
+  if(rRect){ commitRRect(); return; }
   const src=history[history.length-1]||pages[edIdx].cur;
   const img=new Image();
   img.onload=()=>{
-    let c=document.createElement('canvas');
-    c.width=img.width;c.height=img.height;
-    c.getContext('2d').drawImage(img,0,0);
+    // Build source canvas from current history state
+    const srcCanvas=document.createElement('canvas');
+    srcCanvas.width=img.width; srcCanvas.height=img.height;
+    srcCanvas.getContext('2d').drawImage(img,0,0);
+
     if(quad){
       const{tl,tr,bl,br}=quad;
-      // Compute output dimensions: use width of top edge or bottom edge (whichever larger),
-      // and height of left or right edge
-      const topW=Math.hypot(tr.x-tl.x,tr.y-tl.y);
-      const botW=Math.hypot(br.x-bl.x,br.y-bl.y);
-      const leftH=Math.hypot(bl.x-tl.x,bl.y-tl.y);
-      const rightH=Math.hypot(br.x-tr.x,br.y-tr.y);
-      const outW=Math.round(Math.max(topW,botW));
-      const outH=Math.round(Math.max(leftH,rightH));
-      if(outW>4&&outH>4){
-        // Perspective transform using bilinear approximation (good enough for slight skew)
-        const cc=document.createElement('canvas');
-        cc.width=outW; cc.height=outH;
-        const cctx=cc.getContext('2d');
-        // Draw image row-by-row using scanline interpolation
-        // This corrects perspective distortion without black borders
-        const srcPts=[tl,tr,bl,br]; // source quad corners
-        for(let dy=0;dy<outH;dy++){
-          const t=dy/outH;
-          // Left and right edges at this scanline
-          const lx=tl.x+(bl.x-tl.x)*t, ly=tl.y+(bl.y-tl.y)*t;
-          const rx=tr.x+(br.x-tr.x)*t, ry=tr.y+(br.y-tr.y)*t;
-          for(let dx=0;dx<outW;dx++){
-            const s=dx/outW;
-            const sx=lx+(rx-lx)*s, sy=ly+(ry-ly)*s;
-            // Copy pixel — using drawImage for each column is slow,
-            // so we use drawImage strips (faster)
-          }
-          // Draw one horizontal strip
-          const srcX=Math.round(lx), srcY=Math.round(ly);
-          const srcX2=Math.round(rx), srcY2=Math.round(ry);
-          const stripW=Math.round(Math.hypot(rx-lx,ry-ly));
-          const angle=Math.atan2(ry-ly,rx-lx);
-          cctx.save();
-          cctx.translate(0,dy);
-          // Map this scanline from source
-          cctx.drawImage(c,
-            Math.min(srcX,srcX2), Math.round(Math.min(ly,ry)),
-            Math.abs(srcX2-srcX)+1, 1,
-            0, 0, outW, 1
-          );
-          cctx.restore();
-        }
-        c=cc;
+      // Compute output size: use max of opposite edge lengths
+      const topW   = Math.hypot(tr.x-tl.x, tr.y-tl.y);
+      const botW   = Math.hypot(br.x-bl.x, br.y-bl.y);
+      const leftH  = Math.hypot(bl.x-tl.x, bl.y-tl.y);
+      const rightH = Math.hypot(br.x-tr.x, br.y-tr.y);
+      const outW = Math.round(Math.max(topW, botW));
+      const outH = Math.round(Math.max(leftH, rightH));
+
+      if(outW>4 && outH>4){
+        // Apply perspective warp — corrects skew/perspective to perfect rectangle
+        const warped = perspectiveWarp(srcCanvas, quad, outW, outH);
+        pages[edIdx].cur = warped.toDataURL('image/jpeg', 0.92);
+        selectPage(edIdx);
+        renderStrip();
+        closeEd();
+        return;
       }
     }
-    // Save as JPEG always for consistent sizing
-    const fmt='image/jpeg';
-    const q=0.92;
-    pages[edIdx].cur=c.toDataURL(fmt,q);
+
+    // No quad: just save current state as-is
+    pages[edIdx].cur = srcCanvas.toDataURL('image/jpeg', 0.92);
     selectPage(edIdx);
     renderStrip();
     closeEd();
@@ -1017,7 +1080,6 @@ function applyEd(){
 /* ═══ CANVAS COORDS ═══ */
 function canvasPt(clientX,clientY){
   const r=ec.getBoundingClientRect();
-  // getBoundingClientRect accounts for CSS transform+position
   const x=(clientX-r.left)*(ec.width/r.width);
   const y=(clientY-r.top)*(ec.height/r.height);
   return{x, y};
@@ -1031,7 +1093,6 @@ function nearQuadCorner(ix,iy){
   }
   return null;
 }
-// Returns edge name ('top','right','bottom','left') if near midpoint handle
 function nearEdgeMid(ix,iy){
   if(!quad)return null;
   const hs=Math.max(22,32/edSc);
@@ -1047,12 +1108,10 @@ function nearEdgeMid(ix,iy){
   }
   return null;
 }
-// Move an edge by shifting both its corner points perpendicularly
 function moveEdgeMid(edgeName, ix, iy){
   if(!quad)return;
   const{tl,tr,bl,br}=quad;
   if(edgeName==='top'){
-    // top edge: tl+tr move to follow finger Y (keep X)
     const dy=iy-(tl.y+tr.y)/2;
     quad.tl={x:tl.x,y:tl.y+dy};
     quad.tr={x:tr.x,y:tr.y+dy};
@@ -1073,7 +1132,6 @@ function moveEdgeMid(edgeName, ix, iy){
 function isInsideQuad(ix,iy){
   if(!quad)return false;
   const{tl,tr,bl,br}=quad;
-  // Simple point-in-polygon check
   const pts=[tl,tr,br,bl];
   let inside=false;
   for(let i=0,j=pts.length-1;i<pts.length;j=i++){
@@ -1086,19 +1144,15 @@ function moveQuadCorner(name,ix,iy){
   if(!quad)return;
   quad[name]={x:ix,y:iy};
 }
-// Brush stroke: array of points collected during finger move
 let brushPoints = [];
-// Rect redact state
-let rRect=null; // {x,y,w,h} in image coords
+let rRect=null;
 let rRectDragCorner=null, rRectPanStart=null, rRectAtPan=null;
 
 function commitBrushStroke(){
   if(!brushPoints.length) return;
-  // Snapshot points and radius NOW before any async — prevents bug where
-  // brushPoints get cleared before img.onload fires
   const pts=[...brushPoints];
   const r=brushRadius;
-  brushPoints=[]; // clear immediately so next stroke starts fresh
+  brushPoints=[];
   const src=history[history.length-1]||pages[edIdx].cur;
   const img=new Image();
   img.onload=()=>{
@@ -1119,7 +1173,7 @@ function commitBrushStroke(){
     });
     const newUrl=c.toDataURL('image/jpeg',0.92);
     history.push(newUrl);
-    redrawEc(newUrl); // pass url directly — avoids async race
+    redrawEc(newUrl);
   };
   img.src=src;
 }
@@ -1177,7 +1231,6 @@ function moveRRectCorner(name,ix,iy){
   else if(name==='tr'){r.w=ix-r.x;r.h+=r.y-iy;r.y=iy;}
   else if(name==='bl'){r.w+=r.x-ix;r.x=ix;r.h=iy-r.y;}
   else if(name==='br'){r.w=ix-r.x;r.h=iy-r.y;}
-  // clamp
   if(r.w<0){r.x+=r.w;r.w=Math.abs(r.w);}
   if(r.h<0){r.y+=r.h;r.h=Math.abs(r.h);}
 }
@@ -1204,7 +1257,6 @@ function commitRRect(){
   img.src=src;
 }
 function drawLive(ix0,iy0,ix1,iy1){
-  // Coords already in image pixels
   const sx=Math.min(ix0,ix1),sy=Math.min(iy0,iy1);
   const sw=Math.abs(ix1-ix0),sh=Math.abs(iy1-iy0);
   if(tool==='redact'){
@@ -1219,7 +1271,6 @@ function drawLive(ix0,iy0,ix1,iy1){
 ec.addEventListener('touchstart',e=>{
   e.preventDefault();
   if(e.touches.length===2){
-    // Pinch start
     const t0=e.touches[0],t1=e.touches[1];
     pinch0=Math.hypot(t0.clientX-t1.clientX,t0.clientY-t1.clientY);
     pinchMidX=(t0.clientX+t1.clientX)/2;
@@ -1228,7 +1279,6 @@ ec.addEventListener('touchstart',e=>{
     return;
   }
   const p=canvasPt(e.touches[0].clientX,e.touches[0].clientY);
-  // redactRect handles
   if(tool==='redactRect'){
     rRectDragCorner=nearRRectCorner(p.x,p.y);
     if(rRectDragCorner) return;
@@ -1266,7 +1316,6 @@ ec.addEventListener('touchmove',e=>{
     const newZ=Math.max(0.5,Math.min(6,vZ*(d/pinch0)));
     const newMidX=(t0.clientX+t1.clientX)/2;
     const newMidY=(t0.clientY+t1.clientY)/2;
-    // Zoom toward pinch midpoint
     vX += (newMidX-pinchMidX) + (newMidX - (parseFloat(ec.style.left)||0) - parseFloat(ec.style.width)/2) * (newZ/vZ-1);
     vY += (newMidY-pinchMidY) + (newMidY - (parseFloat(ec.style.top)||0)  - parseFloat(ec.style.height)/2) * (newZ/vZ-1);
     vZ=newZ;
@@ -1417,8 +1466,6 @@ document.addEventListener('mouseup',e=>{
   }
 });
 
-
-
 /* ═══ DESKTOP SCROLL ZOOM ═══ */
 document.getElementById('edCanvasArea').addEventListener('wheel',e=>{
   e.preventDefault();
@@ -1430,7 +1477,6 @@ document.getElementById('edCanvasArea').addEventListener('wheel',e=>{
   const dispH=parseFloat(ec.style.height)||ec.height*edSc;
   const baseL=Math.round((area.clientWidth-dispW)/2);
   const baseT=Math.round((area.clientHeight-dispH)/2);
-  // Mouse position relative to canvas origin (before zoom)
   const mx=e.clientX-r.left-(baseL+vX);
   const my=e.clientY-r.top -(baseT+vY);
   vX-=mx*(newZ/vZ-1);
@@ -1441,14 +1487,12 @@ document.getElementById('edCanvasArea').addEventListener('wheel',e=>{
 
 /* ═══ PDF ═══ */
 function openPDFModal(){
-  // Set default filename to current date-time
   const now=new Date();
   const pad=n=>String(n).padStart(2,'0');
   const ts=`${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
   const inp=document.getElementById('pdfName');
   inp.value=ts;
   document.getElementById('pdfModal').classList.add('open');
-  // Select all text — works on both desktop and mobile
   requestAnimationFrame(()=>{
     inp.focus();
     inp.setSelectionRange(0, inp.value.length);
@@ -1499,30 +1543,22 @@ function exportPDF(){
         const tmpCtx=tmp.getContext('2d');
         tmpCtx.drawImage(img,0,0,sw,sh);
 
-        // B&W document mode: adaptive local normalization (tile-based)
         if(pdfColorMode==='bw'){
           const id=tmpCtx.getImageData(0,0,sw,sh);
           const d=id.data;
-
-          // Step 1: Build a grayscale map
           const gray=new Float32Array(sw*sh);
           for(let i=0;i<sw*sh;i++){
             gray[i]=0.299*d[i*4]+0.587*d[i*4+1]+0.114*d[i*4+2];
           }
-
-          // Step 2: Compute local background brightness per tile
-          // Use large tiles (e.g. sw/8 x sh/8) to capture regional lighting
           const tileW=Math.max(60,Math.round(sw/8));
           const tileH=Math.max(60,Math.round(sh/8));
           const cols=Math.ceil(sw/tileW);
           const rows=Math.ceil(sh/tileH);
           const tileRef=new Float32Array(cols*rows);
-
           for(let r=0;r<rows;r++){
             for(let c=0;c<cols;c++){
               const x0=c*tileW, y0=r*tileH;
               const x1=Math.min(x0+tileW,sw), y1=Math.min(y0+tileH,sh);
-              // Collect pixel brightnesses in this tile, take 90th percentile
               const vals=[];
               for(let y=y0;y<y1;y++){
                 for(let x=x0;x<x1;x++){
@@ -1533,33 +1569,27 @@ function exportPDF(){
               tileRef[r*cols+c]=vals[Math.floor(vals.length*0.90)]||200;
             }
           }
-
-          // Step 3: For each pixel, bilinearly interpolate tile reference → local white point
           for(let y=0;y<sh;y++){
             for(let x=0;x<sw;x++){
-              // Tile coordinates (sub-pixel)
               const tc=(x/tileW)-0.5;
               const tr=(y/tileH)-0.5;
               const c0=Math.max(0,Math.floor(tc)), c1=Math.min(cols-1,c0+1);
               const r0=Math.max(0,Math.floor(tr)), r1=Math.min(rows-1,r0+1);
               const fc=tc-c0, fr=tr-r0;
-              // Bilinear interpolation of reference white
               const ref=
                 tileRef[r0*cols+c0]*(1-fc)*(1-fr)+
                 tileRef[r0*cols+c1]*fc*(1-fr)+
                 tileRef[r1*cols+c0]*(1-fc)*fr+
                 tileRef[r1*cols+c1]*fc*fr;
-
-              const localRef=Math.max(ref,120); // floor to avoid div by tiny number
+              const localRef=Math.max(ref,120);
               const g=gray[y*sw+x];
-              // Normalize to local white, then apply S-curve for contrast
               let norm=(g/localRef)*255;
               let final;
-              if(norm>230)      final=255;                              // pure background → white
-              else if(norm>185) final=Math.round(220+(norm-185)*(35/45)); // light bg → near-white
-              else if(norm>130) final=Math.round(norm*0.80);           // mid-gray text → keep darker
-              else if(norm>60)  final=Math.round(norm*0.60);           // dark text → darken
-              else              final=Math.round(norm*0.40);           // very dark → max contrast
+              if(norm>230)      final=255;
+              else if(norm>185) final=Math.round(220+(norm-185)*(35/45));
+              else if(norm>130) final=Math.round(norm*0.80);
+              else if(norm>60)  final=Math.round(norm*0.60);
+              else              final=Math.round(norm*0.40);
               final=Math.max(0,Math.min(255,final));
               const idx=(y*sw+x)*4;
               d[idx]=d[idx+1]=d[idx+2]=final;
@@ -1568,7 +1598,6 @@ function exportPDF(){
           tmpCtx.putImageData(id,0,0);
         }
 
-        // Always use JPEG for compression (PNG is lossless and large)
         const reencoded=tmp.toDataURL('image/jpeg', pdfQ>=1 ? 0.95 : pdfQ);
         const land=sw>sh;
         const a4w=595.28, a4h=841.89;
@@ -1585,7 +1614,7 @@ function exportPDF(){
   }catch(e){console.error(e);showPdfSt('Error: '+e.message,'err');}
 }
 
-/* ═══ OCR — opens ocr.html ═══ */
+/* ═══ OCR ═══ */
 function openOcrPage(){
   if(edIdx===null||!pages[edIdx])return;
   try{
@@ -1603,7 +1632,6 @@ function openOcrPage(){
   const area=document.getElementById('previewArea');
 
   function clamp(){
-    // Keep image within bounds when zoomed in
     if(scale<=1){tx=0;ty=0;return;}
     const ar=area.getBoundingClientRect();
     const imgW=bp.offsetWidth*scale;
@@ -1624,7 +1652,6 @@ function openOcrPage(){
     e.preventDefault();
     const delta=e.deltaY>0?0.85:1.18;
     const newScale=Math.max(0.5,Math.min(8,scale*delta));
-    // Zoom toward mouse cursor
     const r=area.getBoundingClientRect();
     const mx=e.clientX-r.left-r.width/2;
     const my=e.clientY-r.top-r.height/2;
@@ -1650,13 +1677,11 @@ function openOcrPage(){
     dragging=false; area.style.cursor='';
   });
 
-  // Mobile touch: pinch zoom + 1-finger pan
   let mPinch0=null, mPinchScale=1, mPinchTx=0, mPinchTy=0, mPinchMidX=0, mPinchMidY=0;
   let mPan=false, mPanStartX=0, mPanStartY=0, mPanTxStart=0, mPanTyStart=0;
 
   area.addEventListener('touchstart',e=>{
     if(e.touches.length===2){
-      // Pinch start — record both fingers and current state
       mPan=false;
       const t0=e.touches[0],t1=e.touches[1];
       mPinch0=Math.hypot(t0.clientX-t1.clientX,t0.clientY-t1.clientY);
@@ -1665,7 +1690,6 @@ function openOcrPage(){
       mPinchScale=scale; mPinchTx=tx; mPinchTy=ty;
       e.preventDefault();
     } else if(e.touches.length===1){
-      // 1-finger pan start (only meaningful when zoomed in)
       mPinch0=null;
       mPan=true;
       mPanStartX=e.touches[0].clientX;
@@ -1680,7 +1704,6 @@ function openOcrPage(){
       const t0=e.touches[0],t1=e.touches[1];
       const d=Math.hypot(t0.clientX-t1.clientX,t0.clientY-t1.clientY);
       const newScale=Math.max(0.5,Math.min(8,mPinchScale*(d/mPinch0)));
-      // Zoom toward pinch midpoint
       const r=area.getBoundingClientRect();
       const newMidX=(t0.clientX+t1.clientX)/2;
       const newMidY=(t0.clientY+t1.clientY)/2;

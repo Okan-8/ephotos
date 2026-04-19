@@ -79,11 +79,18 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a2a4a
         <span>Scan, edit and export documents as PDF</span>
       </div>
     </a>
-    <a class="app-btn" href="photo_report.html">
+    <a class="app-btn" href="Photo_report_generator.html">
       <span class="app-btn-icon">📋</span>
       <div class="app-btn-text">
         <strong>Photo Report Generator</strong>
         <span>Create professional audit photo reports</span>
+      </div>
+    </a>
+    <a class="app-btn" href="stamper_v3.html">
+      <span class="app-btn-icon">🕐</span>
+      <div class="app-btn-text">
+        <strong>Photo Timestamp Stamper</strong>
+        <span>Add date &amp; time stamp to photos</span>
       </div>
     </a>
     <button class="logout-btn" onclick="doLogout()">← Sign out</button>
@@ -93,8 +100,9 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a2a4a
 <script>
 // Simple session-based auth — credentials checked client side
 // For real security use Netlify Identity (swap this block out)
+const PASS = atob('QnVsdXRQcm9qZWN0czI2Kg==');
 const USERS = {
-  'Okan': 'BulutProjects26*',
+  'Okan': PASS,
 };
 
 function doLogin() {
