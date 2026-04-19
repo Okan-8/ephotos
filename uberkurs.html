@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Überkurs">
+    <title>Überkurs - German Learning</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #000000;
+            min-height: 100vh;
+            padding: 20px;
+            padding-bottom: 40px;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .header {
+            background: #063970;
+            color: white;
+            padding: 25px 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 25px;
+        }
+
+        .section {
+            margin-bottom: 15px;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #063970;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        select, input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 16px;
+            background: white;
+            transition: all 0.3s;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #063970;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .radio-label {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 15px;
+            font-weight: 500;
+        }
+
+        .radio-label:has(input:checked) {
+            background: #063970;
+            color: white;
+            border-color: #063970;
+        }
+
+        .radio-label input {
+            display: none;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+
+        .checkbox-label:has(input:checked) {
+            background: #f0f4ff;
+            border-color: #063970;
+        }
+
+        .checkbox-label input {
+            width: 20px;
+            height: 20px;
+        }
+
+        button {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+        }
+
+        .btn-primary {
+            background: #063970;
+            color: white;
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
+            background: #5568d3;
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:active {
+            transform: scale(0.98);
+            background: #e0e0e0;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #showBtn:disabled {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .word-card {
+            position: relative;
+            background: #063970;
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            margin-bottom: 20px;
+            min-height: 150px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        .word-label {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .word-text {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .pronunciation {
+            font-size: 16px;
+            opacity: 0.9;
+            font-style: italic;
+        }
+
+        .counter {
+            background: #f0f4ff;
+            padding: 10px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: 600;
+            color: #063970;
+            margin-bottom: 15px;
+        }
+
+        .result-box {
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+            font-weight: 600;
+            margin-bottom: 10px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .result-correct {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #c3e6cb;
+        }
+
+        .result-wrong {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #f5c6cb;
+        }
+
+        .translation-box {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            display: none;
+            border: 2px solid #ffc107;
+            position: relative;
+        }
+
+        .translation-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #856404;
+            margin-bottom: 5px;
+        }
+
+        .translation-text {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        #setupScreen, #gameScreen, #loginScreen, #grammarScreen {
+            display: none;
+        }
+
+        #setupScreen.active, #gameScreen.active, #loginScreen.active, #grammarScreen.active {
+            display: block;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        /* LOGIN BUTTON */
+        .login-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #063970;
+            color: white;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 1000;
+            transition: all 0.3s;
+        }
+
+        .login-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .login-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* LOGIN SCREEN */
+        .login-form {
+            max-width: 350px;
+            margin: 50px auto;
+        }
+
+        .login-form h2 {
+            color: #063970;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .login-form .section {
+            margin-bottom: 20px;
+        }
+
+        .login-form label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .error-message {
+            color: #721c24;
+            background: #f8d7da;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        /* TABS */
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s;
+            margin-bottom: 0;
+        }
+
+        .tab.active {
+            color: #063970;
+            border-bottom-color: #063970;
+        }
+
+        /* GRAMMAR NOTES */
+        .grammar-content {
+            max-height: 70vh;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .grammar-note {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border-left: 4px solid #063970;
+        }
+
+        .grammar-note h3 {
+            color: #063970;
+            margin-bottom: 12px;
+            font-size: 18px;
+        }
+
+        .grammar-note p {
+            color: #333;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+
+        .speak-btn {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            cursor: pointer;
+            font-size: 20px;
+            user-select: none;
+            z-index: 10;
+            pointer-events: auto;
+        }
+
+        .translation-box .speak-btn {
+            left: auto;
+            right: 15px;
+        }
+
+
+        /* REFERENCE TABLES */
+        .reference-table {
+            margin: 30px 0;
+            background: #fff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .reference-table h3 {
+            background: #063970;
+            color: white;
+            padding: 15px 20px;
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .reference-table h4 {
+            background: #f0f4ff;
+            color: #063970;
+            padding: 10px 20px;
+            margin: 0;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .reference-table table {
+            width: 100%;
+            min-width: 500px;
+            border-collapse: collapse;
+        }
+
+        .reference-table th {
+            background: #f8f9fa;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #063970;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .reference-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .reference-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .reference-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .logout-btn {
+            padding: 8px 16px;
+            width: auto;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+            
+            .word-text {
+                font-size: 24px;
+            }
+
+            .login-btn {
+                bottom: 20px;
+                right: 20px;
+                width: 50px;
+                height: 50px;
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>&#127465;&#127466; Überkurs</h1>
+            <p>Willkommen / Welcome</p>
+            <p>This is a BULUT project.</p>
+        </div>
+
+        <!-- LOGIN SCREEN -->
+        <div id="loginScreen" class="content">
+            <div class="login-form">
+                <h2>🔐 Admin Login</h2>
+                <div class="error-message" id="loginError">Invalid username or password!</div>
+                <div class="section">
+                    <label>Username</label>
+                    <input type="text" id="username" placeholder="Enter username">
+                </div>
+                <div class="section">
+                    <label>Password</label>
+                    <input type="password" id="password" placeholder="Enter password">
+                </div>
+                <button class="btn-primary" id="loginBtn">Login</button>
+                <button class="btn-secondary" id="cancelLoginBtn">Cancel</button>
+            </div>
+        </div>
+
+        <!-- SETUP SCREEN -->
+        <div id="setupScreen" class="content active">
+            <div class="section">
+                <div class="section-title">Select Word Group</div>
+                <select id="wordGroupSelect">
+                    <option value="All">All</option>
+                </select>
+            </div>
+
+            <div class="section">
+                <div class="section-title">Translation Direction</div>
+                <div class="radio-group">
+                    <label class="radio-label">
+                        <input type="radio" name="direction" value="de-en" checked>
+                        DE → EN
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="direction" value="en-de">
+                        EN → DE
+                    </label>
+                </div>
+            </div>
+
+            <div class="section">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="showPronunciation">
+                    <span>Show Pronunciation</span>
+                </label>
+            </div>
+
+            <div class="section" id="mixedSection" style="display:none;">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="mixedMode" checked>
+                    <span>Mixed Mode</span>
+                </label>
+            </div>
+
+            <button class="btn-primary" id="startBtn">Start Learning</button>
+
+            <div id="grammarTab" style="display:none;">
+                <button class="btn-secondary" id="viewGrammarBtn">📚 Grammar Notes</button>
+            </div>
+
+            <div id="logoutSection" style="display:none;">
+                <button class="btn-secondary logout-btn" id="logoutBtn">Logout</button>
+            </div>
+        </div>
+
+        <!-- GAME SCREEN -->
+        <div id="gameScreen" class="content">
+            <div class="counter" id="counter">0/0</div>
+
+            <div class="word-card" id="wordCard">
+                <span class="speak-btn" id="speak-word" title="Listen">🔊</span>
+                <div class="word-label" id="wordLabel"></div>
+                <div class="word-text" id="wordText">Click Start</div>
+                <div class="pronunciation" id="pronunciationText"></div>
+            </div>
+
+            <div class="translation-box" id="translationBox">
+                <span class="speak-btn" id="speak-translation" title="Listen">🔊</span>
+                <div class="translation-label" id="translationLabel"></div>
+                <div class="translation-text" id="translationText"></div>
+            </div>
+
+            <div class="section">
+                <input type="text" id="answerInput" placeholder="Type your answer...">
+            </div>
+
+            <div class="result-box" id="resultBox"></div>
+
+            <div class="button-group">
+                <button class="btn-primary" id="showBtn">Translate</button>
+                <button class="btn-primary" id="nextBtn">Next</button>
+            </div>
+
+            <button class="btn-primary" id="testBtn">Check your answer</button>
+            <button class="btn-primary" id="restartBtn">Restart</button>
+        </div>
+
+        <!-- GRAMMAR SCREEN -->
+        <div id="grammarScreen" class="content">
+            <h2 style="color: #063970; margin-bottom: 20px;">📚 Grammar Notes</h2>
+            
+            <div class="grammar-content" id="grammarContent">
+                <!-- Grammar notes will be loaded dynamically from grammar-notes.js -->
+            </div>
+
+            <button class="btn-primary" id="backFromGrammarBtn">← Back to Learning</button>
+        </div>
+    </div>
+
+    <!-- LOGIN BUTTON -->
+    <button class="login-btn" id="loginFloatingBtn" title="Admin Login">🔐</button>
+
+    <script src="words.js"></script>
+    <script src="grammar-notes.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
