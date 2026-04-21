@@ -217,24 +217,7 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
 #redactBar{display:none;}
 #redactBar.show{display:flex;}
 
-/* ── LOUPE (köşe aynası) ── */
-#loupe{
-  display:none;
-  position:fixed;
-  width:96px;height:96px;
-  border-radius:50%;
-  border:2.5px solid #27ae60;
-  box-shadow:0 3px 16px rgba(0,0,0,.6);
-  overflow:hidden;
-  pointer-events:none;
-  z-index:10000;
-  background:#111;
-}
-#loupeCanvas{
-  position:absolute;
-  top:0;left:0;
-  width:96px;height:96px;
-}
+
 </style>
 </head>
 <body>
@@ -733,6 +716,16 @@ function applyViewport(){
 let _cachedImg = null;
 let _cachedSrc = null;
 
+/* Sadece overlay'i yeniden çiz — image yok, tamamen sync.
+   Sürükleme sırasında kullan: hızlı, hiç async yok. */
+function redrawOverlayOnly(){
+  if(!_cachedImg) return;
+  ectx.clearRect(0,0,ec.width,ec.height);
+  ectx.drawImage(_cachedImg,0,0,ec.width,ec.height);
+  drawCropOverlay();
+  if(tool==='redactRect') drawRRect();
+}
+
 function _drawFromImg(img){
   ectx.clearRect(0,0,ec.width,ec.height);
   ectx.drawImage(img,0,0,ec.width,ec.height);
@@ -743,13 +736,13 @@ function _drawFromImg(img){
 function redrawEc(srcOverride){
   const src=srcOverride||(history.length?history[history.length-1]:null)||pages[edIdx].cur;
 
-  // Cache hit — tamamen sync, hiç async yok
+  // Cache hit — tamamen sync
   if(_cachedImg && _cachedSrc === src){
     _drawFromImg(_cachedImg);
     return;
   }
 
-  // Cache miss — bir kere yükle, sonra cache'e al
+  // Cache miss — bir kere yükle, cache'e al
   const img=new Image();
   img.onload=()=>{
     _cachedImg = img;
@@ -1441,7 +1434,8 @@ ec.addEventListener('touchmove',e=>{
   }
   if(dragCorner){
     const p=canvasPt(e.touches[0].clientX,e.touches[0].clientY);
-    moveQuadCorner(dragCorner,p.x,p.y);redrawEc();
+    moveQuadCorner(dragCorner,p.x,p.y);
+    redrawOverlayOnly();
     showLoupe(e.touches[0].clientX, e.touches[0].clientY, p.x, p.y);
     return;
   }
@@ -1474,10 +1468,13 @@ ec.addEventListener('touchmove',e=>{
 
 ec.addEventListener('touchend',e=>{
   pinch0=null; vpanStart=null;
+  const wasDragCorner = dragCorner;
   dragCorner=null; dragEdge=null;
   panStart=null; quadAtPanStart=null;
   rRectDragCorner=null; rRectPanStart=null;
   hideLoupe();
+  // Köşe bırakıldı — overlay'i temiz bir frame ile garantile
+  if(wasDragCorner){ redrawEc(); return; }
   if(!drawing)return; drawing=false;
   const rw=Math.abs(px1-px0),rh=Math.abs(py1-py0);
   if(rw<5||rh<5)return;
