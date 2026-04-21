@@ -729,38 +729,39 @@ function applyViewport(){
   ec.style.transformOrigin='top left';
 }
 
-/* Önbellek: mevcut history state'in ImageBitmap'i */
-let _cachedBitmap = null;
-let _cachedSrc    = null;
+/* Önbellek: decode edilmiş Image nesnesi (sync drawImage için) */
+let _cachedImg = null;
+let _cachedSrc = null;
+
+function _drawFromImg(img){
+  ectx.clearRect(0,0,ec.width,ec.height);
+  ectx.drawImage(img,0,0,ec.width,ec.height);
+  drawCropOverlay();
+  if(tool==='redactRect') drawRRect();
+}
 
 function redrawEc(srcOverride){
   const src=srcOverride||(history.length?history[history.length-1]:null)||pages[edIdx].cur;
 
-  if(_cachedBitmap && _cachedSrc === src){
-    ectx.clearRect(0,0,ec.width,ec.height);
-    ectx.drawImage(_cachedBitmap,0,0,ec.width,ec.height);
-    drawCropOverlay();
-    if(tool==='redactRect') drawRRect();
+  // Cache hit — tamamen sync, hiç async yok
+  if(_cachedImg && _cachedSrc === src){
+    _drawFromImg(_cachedImg);
     return;
   }
 
+  // Cache miss — bir kere yükle, sonra cache'e al
   const img=new Image();
   img.onload=()=>{
-    createImageBitmap(img).then(bmp=>{
-      _cachedBitmap = bmp;
-      _cachedSrc    = src;
-      ectx.clearRect(0,0,ec.width,ec.height);
-      ectx.drawImage(bmp,0,0,ec.width,ec.height);
-      drawCropOverlay();
-      if(tool==='redactRect') drawRRect();
-    });
+    _cachedImg = img;
+    _cachedSrc = src;
+    _drawFromImg(img);
   };
   img.src=src;
 }
 
 function invalidateBitmapCache(){
-  if(_cachedBitmap){ _cachedBitmap.close(); _cachedBitmap=null; }
-  _cachedSrc=null;
+  _cachedImg = null;
+  _cachedSrc = null;
 }
 
 function rectToQuad(x,y,w,h){
