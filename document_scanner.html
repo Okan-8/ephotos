@@ -683,6 +683,7 @@ const ectx=ec.getContext('2d');
 function openEd(idx){
   if(idx===null||idx===undefined)return;
   edIdx=idx; history=[]; cropRect=null; quad=null; tool='none'; vZ=1; vX=0; vY=0;
+  invalidateBitmapCache();
   document.querySelectorAll('.etbtn').forEach(b=>b.classList.remove('on'));
   tool='none';
   document.getElementById('edTitle').textContent='Edit — Page '+(idx+1);
@@ -728,16 +729,38 @@ function applyViewport(){
   ec.style.transformOrigin='top left';
 }
 
+/* Önbellek: mevcut history state'in ImageBitmap'i */
+let _cachedBitmap = null;
+let _cachedSrc    = null;
+
 function redrawEc(srcOverride){
   const src=srcOverride||(history.length?history[history.length-1]:null)||pages[edIdx].cur;
-  const img=new Image();
-  img.onload=()=>{
+
+  if(_cachedBitmap && _cachedSrc === src){
     ectx.clearRect(0,0,ec.width,ec.height);
-    ectx.drawImage(img,0,0,ec.width,ec.height);
+    ectx.drawImage(_cachedBitmap,0,0,ec.width,ec.height);
     drawCropOverlay();
     if(tool==='redactRect') drawRRect();
+    return;
+  }
+
+  const img=new Image();
+  img.onload=()=>{
+    createImageBitmap(img).then(bmp=>{
+      _cachedBitmap = bmp;
+      _cachedSrc    = src;
+      ectx.clearRect(0,0,ec.width,ec.height);
+      ectx.drawImage(bmp,0,0,ec.width,ec.height);
+      drawCropOverlay();
+      if(tool==='redactRect') drawRRect();
+    });
   };
   img.src=src;
+}
+
+function invalidateBitmapCache(){
+  if(_cachedBitmap){ _cachedBitmap.close(); _cachedBitmap=null; }
+  _cachedSrc=null;
 }
 
 function rectToQuad(x,y,w,h){
@@ -868,6 +891,7 @@ function setPdfColor(el,mode){
 function undoEd(){
   if(history.length<=1)return;
   history.pop();
+  invalidateBitmapCache();
   cropRect=null; quad=null; rRect=null;
   redrawEc();
 }
@@ -896,6 +920,7 @@ function rotImg(deg){
     ctx.drawImage(img,-img.width/2,-img.height/2);
     const url=c.toDataURL('image/jpeg',0.92);
     history.push(url);
+    invalidateBitmapCache();
     edW=c.width;edH=c.height;
     fitCanvas();
     const ni=new Image();
@@ -1243,6 +1268,7 @@ function commitBrushStroke(){
     });
     const newUrl=c.toDataURL('image/jpeg',0.92);
     history.push(newUrl);
+    invalidateBitmapCache();
     redrawEc(newUrl);
   };
   img.src=src;
@@ -1322,6 +1348,7 @@ function commitRRect(){
     ctx.fillRect(Math.round(r.x),Math.round(r.y),Math.round(r.w),Math.round(r.h));
     const newUrl=c.toDataURL('image/jpeg',0.92);
     history.push(newUrl);
+    invalidateBitmapCache();
     redrawEc(newUrl);
   };
   img.src=src;
