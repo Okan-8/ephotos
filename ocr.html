@@ -18,23 +18,50 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
 .tab.on{background:#27ae60;border-color:#27ae60;}
 .hint{color:rgba(255,255,255,.5);font-size:11px;margin-left:4px;}
 
-/* scroll container */
-.scrollwrap{flex:1;overflow:auto;background:#1a1a1a;display:flex;justify-content:center;align-items:flex-start;}
+/* scroll container — görüntü alanı */
+.scrollwrap{
+  flex:1;overflow:auto;background:#1a1a1a;
+  display:flex;justify-content:center;align-items:flex-start;
+  min-height:0;
+}
 
 /* wrapper that hugs the image exactly */
 #imgBox{position:relative;display:inline-block;line-height:0;}
 #ocrImg{display:block;max-width:100%;height:auto;user-select:text;-webkit-user-select:text;}
 #selCanvas{position:absolute;top:0;left:0;width:100%;height:100%;display:none;touch-action:none;cursor:crosshair;}
 
-.textwrap{display:none;flex-direction:column;flex:1;min-height:0;}
-.lbl{padding:6px 10px;background:#0d1b35;font-size:11px;color:rgba(255,255,255,.6);flex-shrink:0;}
-#ocrText{flex:1;background:#1a1a1a;color:#fff;border:none;padding:12px;font-size:13px;font-family:'Segoe UI',sans-serif;resize:none;outline:none;line-height:1.7;}
-.textftr{padding:6px 10px;background:#0d1b35;display:flex;gap:8px;flex-shrink:0;}
-.textftr button{flex:1;padding:9px;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;}
-.btn-back{background:rgba(255,255,255,.15);color:#fff;}
-.btn-copy{background:#27ae60;color:#fff;}
+/* Alt panel — görüntünün altında kalıcı, başta gizli */
+#bottomPanel{
+  display:none;flex-direction:column;flex-shrink:0;
+  max-height:38vh;border-top:2px solid #27ae60;
+  background:#0d1b35;
+}
+#bottomPanel .lbl{
+  padding:5px 10px;font-size:11px;
+  color:rgba(255,255,255,.6);flex-shrink:0;
+  display:flex;align-items:center;justify-content:space-between;
+}
+#bottomPanel .lbl button{
+  background:#27ae60;border:none;color:#fff;
+  font-size:11px;font-weight:700;padding:3px 10px;
+  border-radius:5px;cursor:pointer;
+}
+#ocrText{
+  flex:1;background:#111;color:#fff;border:none;
+  padding:10px 12px;font-size:13px;
+  font-family:'Segoe UI',sans-serif;resize:none;outline:none;line-height:1.7;
+  min-height:60px;
+}
 
-#status{padding:10px;text-align:center;font-size:13px;color:rgba(255,255,255,.85);background:#0d1b35;flex-shrink:0;display:none;}
+/* eski textwrap — artık kullanılmıyor ama var olsun */
+.textwrap{display:none;}
+
+#status{
+  padding:7px 10px;text-align:center;font-size:12px;
+  color:rgba(255,255,255,.85);background:#0d1b35;
+  flex-shrink:0;display:none;
+  border-top:1px solid rgba(255,255,255,.1);
+}
 
 .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;opacity:.5;}
 .empty p{font-size:13px;}
@@ -64,13 +91,13 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
   </div>
 </div>
 
-<div class="textwrap" id="textwrap">
-  <div class="lbl">Tanınan metin</div>
-  <textarea id="ocrText" readonly></textarea>
-  <div class="textftr">
-    <button class="btn-back" onclick="backToImage()">← Geri</button>
-    <button class="btn-copy" onclick="copyText()">📋 Kopyala</button>
+<!-- Alt panel: aynı ekranda kalıcı textarea -->
+<div id="bottomPanel">
+  <div class="lbl">
+    <span>📋 Tanınan Metin</span>
+    <button onclick="copyText()">Kopyala</button>
   </div>
+  <textarea id="ocrText" readonly placeholder="Alan seçince metin burada görünecek…"></textarea>
 </div>
 
 <div id="status"></div>
@@ -248,7 +275,7 @@ function setStatus(msg){
 
 async function runTesseract(dataUrl, isFullPage=false){
   setStatus('⏳ Yükleniyor…');
-  document.getElementById('scrollwrap').style.display='none';
+  // scrollwrap gizlenmez — görüntü ve textarea aynı anda görünür
   try{
     if(!window.Tesseract){
       await new Promise((res,rej)=>{
@@ -269,7 +296,8 @@ async function runTesseract(dataUrl, isFullPage=false){
       }
     });
     document.getElementById('ocrText').value=result.data.text.trim()||'(Metin bulunamadı)';
-    document.getElementById('textwrap').style.display='flex';
+    document.getElementById('bottomPanel').style.display='flex';
+    document.getElementById('scrollwrap').style.display='flex'; // görüntü kaybolmasın
     setStatus('');
   }catch(err){
     document.getElementById('scrollwrap').style.display='flex';
@@ -279,16 +307,12 @@ async function runTesseract(dataUrl, isFullPage=false){
 
 /* ── Helpers ── */
 function backToImage(){
-  document.getElementById('textwrap').style.display='none';
-  document.getElementById('scrollwrap').style.display='flex';
-  const img=document.getElementById('ocrImg');
-  img.src=imageDataUrl;
+  // Eski uyumluluk — artık kullanılmıyor
+  document.getElementById('bottomPanel').style.display='none';
+  document.getElementById('ocrText').value='';
   sel={x0:0,y0:0,x1:0,y1:0,active:false};
   setStatus('');
-  if(mode==='area'){
-    document.getElementById('selCanvas').style.display='block';
-    setTimeout(()=>{ syncCanvas(); redraw(); },50);
-  }
+  syncCanvas(); redraw();
 }
 
 function copyText(){
