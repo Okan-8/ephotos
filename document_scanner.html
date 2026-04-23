@@ -1093,8 +1093,10 @@ function dilate(mask, w, h, r){
   const out=new Uint8Array(w*h);
   for(let y=r;y<h-r;y++) for(let x=r;x<w-r;x++){
     let found=false;
-    outer: for(let dy=-r;dy<=r&&!found;dy++) for(let dx=-r;dx<=r;dx++){
-      if(mask[(y+dy)*w+(x+dx)]){found=true;break outer;}
+    for(let dy=-r;dy<=r&&!found;dy++){
+      for(let dx=-r;dx<=r&&!found;dx++){
+        if(mask[(y+dy)*w+(x+dx)]) found=true;
+      }
     }
     out[y*w+x]=found?1:0;
   }
@@ -1114,8 +1116,7 @@ function maskToQuad(mask, w, h){
   // Her köşe bölgesinde en uç konveks noktayı bul (perspektif eğimi için)
   const midX=(lft+rgt)/2, midY=(top+bot)/2;
   let tl=[lft,top],tr=[rgt,top],bl=[lft,bot],br=[rgt,bot];
-  let tlS=-Inf,trS=-Inf,blS=-Inf,brS=-Inf;
-  const Inf=Infinity;
+  let tlS=-Infinity,trS=-Infinity,blS=-Infinity,brS=-Infinity;
   const step=Math.max(1,Math.round(Math.min(w,h)/300));
   for(let y=top;y<=bot;y+=step) for(let x=lft;x<=rgt;x+=step){
     if(!mask[y*w+x]) continue;
@@ -1239,33 +1240,38 @@ function autoCrop(){
     ctx.drawImage(img,0,0,sw,sh);
     const imgData=ctx.getImageData(0,0,sw,sh);
 
-    // Run Canny edge detection
-    const edge=cannyEdgeDetect(imgData.data,sw,sh);
+    try{
+      // Run Canny edge detection
+      const edge=cannyEdgeDetect(imgData.data,sw,sh);
 
-    // Find document quad — hem edge hem renk verisi geçiliyor (Seçenek B)
-    const q=findDocumentQuad(edge,sw,sh,imgData.data);
+      // Find document quad — hem edge hem renk verisi geçiliyor (Seçenek B)
+      const q=findDocumentQuad(edge,sw,sh,imgData.data);
 
-    if(q){
-      // Scale back to full image coordinates
-      const S=1/scale;
-      const snap=r=>snapCornerToEdge(r,edge,sw,sh,Math.round(30*scale));
-      const tls=snap(q.tl), trs=snap(q.tr), bls=snap(q.bl), brs=snap(q.br);
+      if(q){
+        // Scale back to full image coordinates
+        const S=1/scale;
+        const snap=r=>snapCornerToEdge(r,edge,sw,sh,Math.round(30*scale));
+        const tls=snap(q.tl), trs=snap(q.tr), bls=snap(q.bl), brs=snap(q.br);
 
-      quad={
-        tl:{x:Math.round(tls.x*S), y:Math.round(tls.y*S)},
-        tr:{x:Math.round(trs.x*S), y:Math.round(trs.y*S)},
-        bl:{x:Math.round(bls.x*S), y:Math.round(bls.y*S)},
-        br:{x:Math.round(brs.x*S), y:Math.round(brs.y*S)},
-      };
-      cropRect=null;
-      redrawEc();
-    } else {
-      // Ultimate fallback: full image with small margin
+        quad={
+          tl:{x:Math.round(tls.x*S), y:Math.round(tls.y*S)},
+          tr:{x:Math.round(trs.x*S), y:Math.round(trs.y*S)},
+          bl:{x:Math.round(bls.x*S), y:Math.round(bls.y*S)},
+          br:{x:Math.round(brs.x*S), y:Math.round(brs.y*S)},
+        };
+      } else {
+        // Fallback: full image with small margin
+        const m=Math.round(Math.min(img.width,img.height)*0.02);
+        quad=rectToQuad(m,m,img.width-2*m,img.height-2*m);
+      }
+    } catch(err){
+      console.error('autoCrop error:',err);
+      // Hata durumunda güvenli fallback
       const m=Math.round(Math.min(img.width,img.height)*0.02);
       quad=rectToQuad(m,m,img.width-2*m,img.height-2*m);
-      cropRect=null;
-      redrawEc();
     }
+    cropRect=null;
+    redrawEc();
   };
   img.src=src;
 }
