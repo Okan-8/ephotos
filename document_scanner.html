@@ -364,7 +364,7 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
         <button class="pdf-cancel" onclick="closePDFModal()">Cancel</button>
         <button class="pdf-go" onclick="exportPDF('download')">Generate</button>
       </div>
-      <button id="btnShare" class="pdf-go" style="background:#075e54;display:none;width:100%;" onclick="sharePDF()">↗ Share</button>
+      <button id="btnShare" class="pdf-go" style="background:#075e54;display:block;width:100%;opacity:0.4;pointer-events:none;" onclick="sharePDF()">↗ Share</button>
     </div>
     <div class="st" id="pdfSt"></div>
   </div>
@@ -1045,71 +1045,147 @@ function cannyEdgeDetect(data, w, h){
   return edge; // 2 = edge pixel
 }
 
-/* Scan edge map row by row / col by col to find bounding extremes per quadrant */
-function findDocumentQuad(edge, w, h){
-  // Sample at reduced resolution for speed
+/* ═══ SEÇENEK B: Geliştirilmiş otomatik belge tespiti ═══
+ * 1. Kenar piksellerini topla
+ * 2. Her kenardan ışın (ray) tarayarak dominant çizgileri bul
+ * 3. Arka plan rengini istatistiksel olarak bul (histogram modu)
+ * 4. Renk farkı maskesiyle belge bölgesini ayır
+ * 5. İki yöntemi birleştir, en büyük makul quad'ı seç
+ * 6. Çoklu threshold denemeleriyle en iyi sonucu al
+ */
+
+// Görüntünün kenar piksellerinden arka plan rengini istatistiksel bul
+function detectBgColor(data, w, h){
+  // Sadece kenar bantlarını örnekle (border %8)
+  const bx=Math.round(w*0.08), by=Math.round(h*0.08);
+  const buckets=new Array(64).fill(0); // 4bit per channel quantize
+  let count=0;
+  function sample(x,y){
+    const i=(y*w+x)*4;
+    const r=data[i]>>2, g=data[i+1]>>2, b=data[i+2]>>2;
+    // Quantize to 4 bits each → 0..63 index (coarse)
+    buckets[((r>>2)&0xF)*4+((g>>2)&0xF>>2)]++;
+    // Simpler: just track luminance bucket
+    const lum=Math.round((data[i]*0.299+data[i+1]*0.587+data[i+2]*0.114)/4);
+    buckets[lum]=(buckets[lum]||0)+1; count++;
+  }
+  for(let x=0;x<w;x++){ sample(x,0); sample(x,by); sample(x,h-1); sample(x,h-1-by); }
+  for(let y=0;y<h;y++){ sample(0,y); sample(bx,y); sample(w-1,y); sample(w-1-bx,y); }
+  // En yaygın lum bucket → bg lum tahmini
+  let bestBucket=0, bestCount=0;
+  buckets.forEach((c,i)=>{if(c>bestCount){bestCount=c;bestBucket=i;}});
+  const bgLum=bestBucket*4+2; // bucket merkezi
+  return bgLum; // 0=siyah bg, 255=beyaz bg
+}
+
+// Renk farkı bazlı maske: bg'den farklı pikseller belge
+function colorDiffMask(data, w, h, bgLum, threshold){
+  const mask=new Uint8Array(w*h);
+  for(let i=0;i<w*h;i++){
+    const lum=data[i*4]*0.299+data[i*4+1]*0.587+data[i*4+2]*0.114;
+    mask[i]=Math.abs(lum-bgLum)>threshold?1:0;
+  }
+  return mask;
+}
+
+// Dilatasyon: küçük delikleri doldur
+function dilate(mask, w, h, r){
+  const out=new Uint8Array(w*h);
+  for(let y=r;y<h-r;y++) for(let x=r;x<w-r;x++){
+    let found=false;
+    outer: for(let dy=-r;dy<=r&&!found;dy++) for(let dx=-r;dx<=r;dx++){
+      if(mask[(y+dy)*w+(x+dx)]){found=true;break outer;}
+    }
+    out[y*w+x]=found?1:0;
+  }
+  return out;
+}
+
+// Maske üzerindeki en büyük bağlı bileşenin sınırlayıcı kutu + konveks köşeleri
+function maskToQuad(mask, w, h){
+  // Satır ve sütun bazlı sınır tara
+  let top=-1,bot=-1,lft=-1,rgt=-1;
+  for(let y=0;y<h&&top<0;y++) for(let x=0;x<w;x++) if(mask[y*w+x]){top=y;break;}
+  for(let y=h-1;y>=0&&bot<0;y--) for(let x=0;x<w;x++) if(mask[y*w+x]){bot=y;break;}
+  for(let x=0;x<w&&lft<0;x++) for(let y=0;y<h;y++) if(mask[y*w+x]){lft=x;break;}
+  for(let x=w-1;x>=0&&rgt<0;x--) for(let y=0;y<h;y++) if(mask[y*w+x]){rgt=x;break;}
+  if(top<0) return null;
+
+  // Her köşe bölgesinde en uç konveks noktayı bul (perspektif eğimi için)
+  const midX=(lft+rgt)/2, midY=(top+bot)/2;
+  let tl=[lft,top],tr=[rgt,top],bl=[lft,bot],br=[rgt,bot];
+  let tlS=-Inf,trS=-Inf,blS=-Inf,brS=-Inf;
+  const Inf=Infinity;
+  const step=Math.max(1,Math.round(Math.min(w,h)/300));
+  for(let y=top;y<=bot;y+=step) for(let x=lft;x<=rgt;x+=step){
+    if(!mask[y*w+x]) continue;
+    const nx=x/w, ny=y/h;
+    const sTL=(1-nx)*(1-ny); if(sTL>tlS){tlS=sTL;tl=[x,y];}
+    const sTR=nx*(1-ny);     if(sTR>trS){trS=sTR;tr=[x,y];}
+    const sBL=(1-nx)*ny;     if(sBL>blS){blS=sBL;bl=[x,y];}
+    const sBR=nx*ny;         if(sBR>brS){brS=sBR;br=[x,y];}
+  }
+  return {tl:{x:tl[0],y:tl[1]},tr:{x:tr[0],y:tr[1]},bl:{x:bl[0],y:bl[1]},br:{x:br[0],y:br[1]}};
+}
+
+function findDocumentQuad(edge, w, h, colorData){
+  const imgArea = w*h;
+  const results = []; // birden fazla yöntem dene, en iyi alanı seç
+
+  // ── Yöntem A: Kenar pikselleri + köşe skoru (önceki yöntem, iyileştirilmiş) ──
   const step=Math.max(1,Math.round(Math.min(w,h)/400));
-
-  // Scan tüm alanı — küçük margin ile kenardaki belge sınırlarını kaçırma
   const margin=Math.round(Math.min(w,h)*0.01);
-
-  // Edge piksellerini topla
   const pts=[];
   for(let y=margin;y<h-margin;y+=step) for(let x=margin;x<w-margin;x+=step){
     if(edge[y*w+x]===2) pts.push([x,y]);
   }
-  if(pts.length<20) return null;
-
-  // Compute bounding box first as fallback
-  let mnX=w,mnY=h,mxX=0,mxY=0;
-  pts.forEach(([x,y])=>{
-    if(x<mnX)mnX=x; if(y<mnY)mnY=y;
-    if(x>mxX)mxX=x; if(y>mxY)mxY=y;
-  });
-
-  // 4 köşeyi belirle: her biri için en uygun edge noktasını bul
-  // Strateji: her köşe yönünde hem konum hem yoğunluk ağırlıklı skor
-  const cx=w/2, cy=h/2;
-
-  // Her edge pikseli için 4 köşe skorunu hesapla
-  let tl=pts[0],tr=pts[0],bl=pts[0],br=pts[0];
-  let tlS=-Infinity,trS=-Infinity,blS=-Infinity,brS=-Infinity;
-
-  pts.forEach(p=>{
-    const [x,y]=p;
-    // Normalize: 0..1
-    const nx=x/w, ny=y/h;
-    // Köşeye yakınlık skoru: sol-üst köşe için x düşük + y düşük iyi
-    const sTL = (1-nx)*(1-ny)*2 - nx - ny;
-    const sTR = nx*(1-ny)*2 + nx - ny;
-    const sBL = (1-nx)*ny*2 - nx + ny;
-    const sBR = nx*ny*2 + nx + ny;
-    if(sTL>tlS){tlS=sTL;tl=p;}
-    if(sTR>trS){trS=sTR;tr=p;}
-    if(sBL>blS){blS=sBL;bl=p;}
-    if(sBR>brS){brS=sBR;br=p;}
-  });
-
-  // Validate: quad en az görüntünün %8'ini kapsamalı
-  const area=quadArea(tl,tr,bl,br);
-  const imgArea=w*h;
-  if(area/imgArea < 0.08){
-    // Fallback: axis-aligned bbox + küçük padding
-    const pad=Math.round(Math.min(w,h)*0.01);
-    return {
-      tl:{x:Math.max(0,mnX-pad), y:Math.max(0,mnY-pad)},
-      tr:{x:Math.min(w,mxX+pad), y:Math.max(0,mnY-pad)},
-      bl:{x:Math.max(0,mnX-pad), y:Math.min(h,mxY+pad)},
-      br:{x:Math.min(w,mxX+pad), y:Math.min(h,mxY+pad)}
-    };
+  if(pts.length>=20){
+    let mnX=w,mnY=h,mxX=0,mxY=0;
+    pts.forEach(([x,y])=>{if(x<mnX)mnX=x;if(y<mnY)mnY=y;if(x>mxX)mxX=x;if(y>mxY)mxY=y;});
+    let tl=pts[0],tr=pts[0],bl=pts[0],br=pts[0];
+    let tlS=-Infinity,trS=-Infinity,blS=-Infinity,brS=-Infinity;
+    pts.forEach(p=>{
+      const [x,y]=p;
+      const nx=x/w, ny=y/h;
+      const sTL=(1-nx)*(1-ny)*2-nx-ny; if(sTL>tlS){tlS=sTL;tl=p;}
+      const sTR=nx*(1-ny)*2+nx-ny;     if(sTR>trS){trS=sTR;tr=p;}
+      const sBL=(1-nx)*ny*2-nx+ny;     if(sBL>blS){blS=sBL;bl=p;}
+      const sBR=nx*ny*2+nx+ny;         if(sBR>brS){brS=sBR;br=p;}
+    });
+    const qA={tl:{x:tl[0],y:tl[1]},tr:{x:tr[0],y:tr[1]},bl:{x:bl[0],y:bl[1]},br:{x:br[0],y:br[1]}};
+    results.push({q:qA, area:quadArea(qA.tl,qA.tr,qA.bl,qA.br), method:'edge'});
   }
 
-  return {
-    tl:{x:tl[0],y:tl[1]},
-    tr:{x:tr[0],y:tr[1]},
-    bl:{x:bl[0],y:bl[1]},
-    br:{x:br[0],y:br[1]}
-  };
+  // ── Yöntem B: Renk farkı bazlı maske (colorData varsa) ──
+  if(colorData){
+    const bgLum=detectBgColor(colorData,w,h);
+    // Farklı threshold seviyeleri dene
+    for(const thr of [25, 40, 55, 70]){
+      const mask=colorDiffMask(colorData,w,h,bgLum,thr);
+      const dilR=Math.round(Math.min(w,h)*0.015);
+      const dilated=dilate(mask,w,h,Math.min(dilR,5));
+      const q=maskToQuad(dilated,w,h);
+      if(q){
+        const a=quadArea(q.tl,q.tr,q.bl,q.br);
+        if(a/imgArea>0.05 && a/imgArea<0.98){
+          results.push({q, area:a, method:'color_'+thr});
+        }
+      }
+    }
+  }
+
+  if(!results.length) return null;
+
+  // En iyi sonucu seç: alan imgArea'nın %10-%95 arasında olan, en büyük olanı
+  const valid=results.filter(r=>r.area/imgArea>0.10 && r.area/imgArea<0.95);
+  if(!valid.length){
+    // Herhangi birini al
+    results.sort((a,b)=>b.area-a.area);
+    return results[0].q;
+  }
+  // Geçerli olanların içinde en büyük alanı seç
+  valid.sort((a,b)=>b.area-a.area);
+  return valid[0].q;
 }
 
 function quadArea(tl,tr,bl,br){
@@ -1166,8 +1242,8 @@ function autoCrop(){
     // Run Canny edge detection
     const edge=cannyEdgeDetect(imgData.data,sw,sh);
 
-    // Find document quad
-    const q=findDocumentQuad(edge,sw,sh);
+    // Find document quad — hem edge hem renk verisi geçiliyor (Seçenek B)
+    const q=findDocumentQuad(edge,sw,sh,imgData.data);
 
     if(q){
       // Scale back to full image coordinates
@@ -1895,7 +1971,8 @@ function exportPDF(mode='download'){
   if(!pages.length)return;
   const name=(document.getElementById('pdfName').value.trim()||'scan_'+Date.now())+'.pdf';
   showPdfSt('Generating…','info');
-  document.getElementById('btnShare').style.display='none';
+  const _sb=document.getElementById('btnShare');
+  _sb.style.opacity='0.4'; _sb.style.pointerEvents='none';
   try{
     const{jsPDF}=window.jspdf;
     const a4w=595.28,a4h=841.89;
@@ -1919,7 +1996,11 @@ function exportPDF(mode='download'){
           document.body.removeChild(a);
           showPdfSt('✓ İndiriliyor: '+name,'ok');
         }
-        if(navigator.canShare) document.getElementById('btnShare').style.display='block';
+        const shareBtn=document.getElementById('btnShare');
+        if(navigator.canShare){
+          shareBtn.style.opacity='1';
+          shareBtn.style.pointerEvents='auto';
+        }
         setTimeout(()=>{if(mode==='download')closePDFModal();},2000);
         return;
       }
@@ -1993,9 +2074,18 @@ function exportPDF(mode='download'){
         }
 
         const reencoded=tmp.toDataURL('image/jpeg', pdfQ>=1 ? 0.95 : pdfQ);
-        const land=sw>sh;
-        const a4w=595.28, a4h=841.89;
-        const ptW=land?a4h:a4w, ptH=land?a4w:a4h;
+        // Gerçek orana göre sayfa boyutu — A4'e zorlamaz
+        // 72pt/inch, 96px/inch varsayımıyla px→pt
+        const PX2PT = 72/96;
+        let ptW = sw * PX2PT;
+        let ptH = sh * PX2PT;
+        // Maks A4 sınırı (A3 gibi devasa sayfalar olmasın)
+        const MAX_PT = 841.89;
+        if(ptW > MAX_PT || ptH > MAX_PT){
+          const r = Math.min(MAX_PT/ptW, MAX_PT/ptH);
+          ptW = ptW*r; ptH = ptH*r;
+        }
+        const land = ptW > ptH;
         if(!doc)doc=new jsPDF({orientation:land?'l':'p',unit:'pt',format:[ptW,ptH]});
         else doc.addPage([ptW,ptH],land?'l':'p');
         doc.addImage(reencoded,'JPEG',0,0,ptW,ptH,undefined,'FAST');
