@@ -217,6 +217,30 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
 #redactBar{display:none;}
 #redactBar.show{display:flex;}
 
+/* ── LOUPE (köşe önizleme — canvas area içinde float) ── */
+#loupe{
+  display:none;
+  position:absolute;
+  z-index:200;
+  width:110px;height:110px;
+  border-radius:10px;
+  border:2px solid rgba(255,255,255,0.55);
+  box-shadow:0 4px 18px rgba(0,0,0,0.7);
+  overflow:hidden;
+  pointer-events:none;
+  background:#111;
+  top:12px;
+}
+#loupe canvas{display:block;width:100%;height:100%;}
+#loupe::after{
+  content:'';
+  position:absolute;inset:0;
+  background:
+    linear-gradient(rgba(255,255,255,.3) 1px,transparent 1px) 0 50%/100% 1px no-repeat,
+    linear-gradient(90deg,rgba(255,255,255,.3) 1px,transparent 1px) 50% 0/1px 100% no-repeat;
+  pointer-events:none;
+}
+
 
 </style>
 </head>
@@ -307,9 +331,9 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
   </div>
   <div class="ed-canvas-area" id="edCanvasArea">
     <canvas id="ec"></canvas>
+    <!-- Loupe — canvas area içinde sabit, parmak görüşü engellemiyor -->
+    <div id="loupe"><canvas id="loupeCanvas"></canvas></div>
   </div>
-  <!-- Loupe (büyüteç) — fixed pozisyon, modal üzerinde yüzer -->
-  <div id="loupe"><canvas id="loupeCanvas"></canvas></div>
   <div class="ed-ftr">
     <div style="display:flex;gap:6px">
       <button class="gbtn gbtn-light" onclick="resetEd()">Reset</button>
@@ -1009,11 +1033,10 @@ function findDocumentQuad(edge, w, h){
   // Sample at reduced resolution for speed
   const step=Math.max(1,Math.round(Math.min(w,h)/400));
 
-  // For each of 4 regions (corners), find the strongest edge cluster
-  // by casting rays from the boundary toward center
-  const margin=Math.round(Math.min(w,h)*0.05);
+  // Scan tüm alanı — küçük margin ile kenardaki belge sınırlarını kaçırma
+  const margin=Math.round(Math.min(w,h)*0.01);
 
-  // Find convex hull of all edge pixels, then approximate to quad
+  // Edge piksellerini topla
   const pts=[];
   for(let y=margin;y<h-margin;y+=step) for(let x=margin;x<w-margin;x+=step){
     if(edge[y*w+x]===2) pts.push([x,y]);
@@ -1027,22 +1050,34 @@ function findDocumentQuad(edge, w, h){
     if(x>mxX)mxX=x; if(y>mxY)mxY=y;
   });
 
-  // Find extreme points: topmost, bottommost, leftmost, rightmost
-  // Also find the 4 corners: min(x+y), max(x-y), max(x+y), min(x-y)
+  // 4 köşeyi belirle: her biri için en uygun edge noktasını bul
+  // Strateji: her köşe yönünde hem konum hem yoğunluk ağırlıklı skor
+  const cx=w/2, cy=h/2;
+
+  // Her edge pikseli için 4 köşe skorunu hesapla
   let tl=pts[0],tr=pts[0],bl=pts[0],br=pts[0];
+  let tlS=-Infinity,trS=-Infinity,blS=-Infinity,brS=-Infinity;
+
   pts.forEach(p=>{
     const [x,y]=p;
-    if(x+y < tl[0]+tl[1]) tl=p;
-    if(x-y > tr[0]-tr[1]) tr=p;
-    if(y-x > bl[1]-bl[0]) bl=p;
-    if(x+y > br[0]+br[1]) br=p;
+    // Normalize: 0..1
+    const nx=x/w, ny=y/h;
+    // Köşeye yakınlık skoru: sol-üst köşe için x düşük + y düşük iyi
+    const sTL = (1-nx)*(1-ny)*2 - nx - ny;
+    const sTR = nx*(1-ny)*2 + nx - ny;
+    const sBL = (1-nx)*ny*2 - nx + ny;
+    const sBR = nx*ny*2 + nx + ny;
+    if(sTL>tlS){tlS=sTL;tl=p;}
+    if(sTR>trS){trS=sTR;tr=p;}
+    if(sBL>blS){blS=sBL;bl=p;}
+    if(sBR>brS){brS=sBR;br=p;}
   });
 
-  // Validate: quad should cover at least 40% of image area
+  // Validate: quad en az görüntünün %8'ini kapsamalı
   const area=quadArea(tl,tr,bl,br);
   const imgArea=w*h;
-  if(area/imgArea < 0.10){
-    // Try axis-aligned bbox
+  if(area/imgArea < 0.08){
+    // Fallback: axis-aligned bbox + küçük padding
     const pad=Math.round(Math.min(w,h)*0.01);
     return {
       tl:{x:Math.max(0,mnX-pad), y:Math.max(0,mnY-pad)},
@@ -1061,8 +1096,10 @@ function findDocumentQuad(edge, w, h){
 }
 
 function quadArea(tl,tr,bl,br){
-  // Shoelace formula
-  const pts=[[tl[0],tl[1]],[tr[0],tr[1]],[br[0],br[1]],[bl[0],bl[1]]];
+  // tl/tr/bl/br her ikisi de [x,y] array ya da {x,y} obje olabilir — normalize et
+  function gx(p){return Array.isArray(p)?p[0]:p.x;}
+  function gy(p){return Array.isArray(p)?p[1]:p.y;}
+  const pts=[[gx(tl),gy(tl)],[gx(tr),gy(tr)],[gx(br),gy(br)],[gx(bl),gy(bl)]];
   let a=0;
   for(let i=0;i<4;i++){
     const j=(i+1)%4;
@@ -1302,55 +1339,68 @@ function applyEd(){
   img.src=src;
 }
 
-/* ═══ LOUPE (köşe aynası) ═══ */
+/* ═══ LOUPE (köşe aynası) ═══
+ * Artık ed-canvas-area içinde position:absolute.
+ * Sürüklenen köşe sol yarıdaysa loupe sağ üste,
+ * sağ yarıdaysa sol üste sabitlenir — parmak görüşü engellemiyor.
+ */
 const loupeEl     = document.getElementById('loupe');
 const loupeCanvas = document.getElementById('loupeCanvas');
 const lctx        = loupeCanvas.getContext('2d');
-const LOUPE_SIZE  = 96;   // px — daire çapı (CSS ile eşleşmeli)
-const LOUPE_GAP   = 18;   // parmaktan uzaklık (px)
+const LOUPE_SIZE  = 110;  // px — CSS ile eşleşmeli
 loupeCanvas.width  = LOUPE_SIZE;
 loupeCanvas.height = LOUPE_SIZE;
 
-/**
- * Loupe'u göster — 1:1, büyütme yok.
- * Köşenin canvas görüntü koordinatını merkez alır,
- * dairesel pencerede o alanı olduğu gibi kopyalar.
- */
-function showLoupe(touchClientX, touchClientY, imgX, imgY){
-  const half = LOUPE_SIZE / 2;
+// RAF throttle — loupe için
+let _loupeRaf = null;
 
-  // Canvas'tan 1:1 bölgeyi kopyala (edSc ölçeği hesaba katılıyor)
-  // imgX/imgY canvas piksel koordinatı; ekrandaki karşılığı edSc ile küçülmüş
-  // Gerçek boyutta kopyalamak için kaynak boyutu LOUPE_SIZE/edSc olmalı
-  const srcSize = LOUPE_SIZE / (edSc * vZ);
-  lctx.clearRect(0, 0, LOUPE_SIZE, LOUPE_SIZE);
-  lctx.drawImage(
-    ec,
-    imgX - srcSize / 2, imgY - srcSize / 2, srcSize, srcSize,
-    0, 0, LOUPE_SIZE, LOUPE_SIZE
-  );
+function showLoupe(touchClientX, _unused, imgX, imgY){
+  // Hangi tarafta? → köşenin canvas-area içindeki ekran X pozisyonu
+  const area = document.getElementById('edCanvasArea');
+  const areaRect = area.getBoundingClientRect();
+  const cornerRelX = touchClientX - areaRect.left;
+  const isLeftHalf = cornerRelX < areaRect.width / 2;
 
-  // Köşenin canvas içindeki X'ini ekran koordinatına çevir
-  const ecRect = ec.getBoundingClientRect();
-  const cornerScreenX = ecRect.left + (imgX / ec.width) * ecRect.width;
-  // Köşe ekranın sağ yarısındaysa loupe sola, sol yarısındaysa sağa
-  const isLeft = cornerScreenX < window.innerWidth / 2;
-  let lx = isLeft
-    ? touchClientX + LOUPE_GAP + 24
-    : touchClientX - LOUPE_GAP - 24 - LOUPE_SIZE;
-  let ly = touchClientY - half;
+  // Loupe'u karşı üst köşeye sabitle (CSS top:12px sabit, sadece left/right değişir)
+  loupeEl.style.removeProperty('left');
+  loupeEl.style.removeProperty('right');
+  if(isLeftHalf){
+    loupeEl.style.right = '12px';  // sol köşe sürükleniyorsa sağda göster
+  } else {
+    loupeEl.style.left  = '12px';  // sağ köşe sürükleniyorsa solda göster
+  }
 
-  // Ekran sınırları
-  lx = Math.max(6, Math.min(window.innerWidth  - LOUPE_SIZE - 6, lx));
-  ly = Math.max(6, Math.min(window.innerHeight - LOUPE_SIZE - 6, ly));
+  // İçeriği RAF ile güncelle — flicker engellemek için sync çizim
+  if(_loupeRaf) cancelAnimationFrame(_loupeRaf);
+  _loupeRaf = requestAnimationFrame(()=>{
+    if(!_cachedImg) return;
+    // Zoom: 2× büyütme (köşeyi net görmek için)
+    const zoom = 2.5;
+    const srcSize = LOUPE_SIZE / (edSc * vZ * zoom);
+    lctx.clearRect(0, 0, LOUPE_SIZE, LOUPE_SIZE);
+    lctx.drawImage(
+      _cachedImg,
+      imgX - srcSize/2, imgY - srcSize/2, srcSize, srcSize,
+      0, 0, LOUPE_SIZE, LOUPE_SIZE
+    );
+    // Overlay çizgilerini de üstüne koy (köşe konumunu görmek için)
+    lctx.save();
+    lctx.strokeStyle = 'rgba(39,174,96,0.9)';
+    lctx.lineWidth = 1.5;
+    lctx.beginPath();
+    lctx.moveTo(LOUPE_SIZE/2, 0); lctx.lineTo(LOUPE_SIZE/2, LOUPE_SIZE);
+    lctx.moveTo(0, LOUPE_SIZE/2); lctx.lineTo(LOUPE_SIZE, LOUPE_SIZE/2);
+    lctx.stroke();
+    lctx.restore();
+    _loupeRaf = null;
+  });
 
-  loupeEl.style.left    = lx + 'px';
-  loupeEl.style.top     = ly + 'px';
   loupeEl.style.display = 'block';
 }
 
 function hideLoupe(){
   loupeEl.style.display = 'none';
+  if(_loupeRaf){ cancelAnimationFrame(_loupeRaf); _loupeRaf=null; }
 }
 
 /* ═══ CANVAS COORDS ═══ */
@@ -1422,6 +1472,7 @@ function moveQuadCorner(name,ix,iy){
 }
 let brushPoints = [];
 let rRect=null;
+let _dragRaf=null;
 let rRectDragCorner=null, rRectPanStart=null, rRectAtPan=null;
 
 function commitBrushStroke(){
@@ -1622,7 +1673,13 @@ ec.addEventListener('touchmove',e=>{
   if(dragCorner){
     const p=canvasPt(e.touches[0].clientX,e.touches[0].clientY);
     moveQuadCorner(dragCorner,p.x,p.y);
-    redrawOverlayOnly();
+    // RAF-throttled redraw: canvas kararmaz, 60fps akıcı sürükleme
+    if(!_dragRaf){
+      _dragRaf=requestAnimationFrame(()=>{
+        redrawOverlayOnly();
+        _dragRaf=null;
+      });
+    }
     showLoupe(e.touches[0].clientX, e.touches[0].clientY, p.x, p.y);
     return;
   }
@@ -1656,12 +1713,17 @@ ec.addEventListener('touchmove',e=>{
 ec.addEventListener('touchend',e=>{
   pinch0=null; vpanStart=null;
   const wasDragCorner = dragCorner;
+  const wasDragEdge   = dragEdge;
   dragCorner=null; dragEdge=null;
   panStart=null; quadAtPanStart=null;
   rRectDragCorner=null; rRectPanStart=null;
   hideLoupe();
-  // Köşe bırakıldı — overlay'i temiz bir frame ile garantile
-  if(wasDragCorner){ redrawEc(); return; }
+  // Köşe veya kenar bırakıldı — cache varsa sync çiz (kararma engeli)
+  if(wasDragCorner || wasDragEdge){
+    if(_cachedImg) redrawOverlayOnly();
+    else redrawEc();
+    return;
+  }
   if(!drawing)return; drawing=false;
   const rw=Math.abs(px1-px0),rh=Math.abs(py1-py0);
   if(rw<5||rh<5)return;
