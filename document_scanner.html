@@ -924,31 +924,215 @@ function rotImg(deg){
   img.src=src;
 }
 
+/* ═══ SMART AUTO-DETECT (Canny + Quadrilateral Contour) ═══
+ * Performs:
+ *  1. Gaussian blur  → reduces noise
+ *  2. Grayscale + Sobel gradient → edge magnitude & direction
+ *  3. Non-maximum suppression → thin edges
+ *  4. Double threshold + hysteresis → Canny binary edge map
+ *  5. Probabilistic contour scan → finds the largest 4-sided polygon
+ *     that resembles a document/page boundary
+ *  6. Falls back to content-bbox if no quad found
+ */
+function cannyEdgeDetect(data, w, h){
+  // --- Step 1: Grayscale ---
+  const gray = new Float32Array(w*h);
+  for(let i=0;i<w*h;i++){
+    gray[i] = 0.299*data[i*4] + 0.587*data[i*4+1] + 0.114*data[i*4+2];
+  }
+
+  // --- Step 2: Gaussian blur (5x5 kernel) ---
+  const kernel=[2,4,5,4,2, 4,9,12,9,4, 5,12,15,12,5, 4,9,12,9,4, 2,4,5,4,2];
+  const kSum=159;
+  const blurred=new Float32Array(w*h);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    let s=0;
+    for(let ky=0;ky<5;ky++) for(let kx=0;kx<5;kx++){
+      const ny=Math.max(0,Math.min(h-1,y+ky-2));
+      const nx=Math.max(0,Math.min(w-1,x+kx-2));
+      s+=kernel[ky*5+kx]*gray[ny*w+nx];
+    }
+    blurred[y*w+x]=s/kSum;
+  }
+
+  // --- Step 3: Sobel gradients ---
+  const gx=new Float32Array(w*h), gy=new Float32Array(w*h);
+  const mag=new Float32Array(w*h), dir=new Uint8Array(w*h);
+  for(let y=1;y<h-1;y++) for(let x=1;x<w-1;x++){
+    const p=(py,px)=>blurred[py*w+px];
+    const sx=-p(y-1,x-1)-2*p(y,x-1)-p(y+1,x-1)+p(y-1,x+1)+2*p(y,x+1)+p(y+1,x+1);
+    const sy=-p(y-1,x-1)-2*p(y-1,x)-p(y-1,x+1)+p(y+1,x-1)+2*p(y+1,x)+p(y+1,x+1);
+    gx[y*w+x]=sx; gy[y*w+x]=sy;
+    mag[y*w+x]=Math.sqrt(sx*sx+sy*sy);
+    const a=Math.atan2(sy,sx)*180/Math.PI;
+    const an=((a%180)+180)%180;
+    dir[y*w+x]=an<22.5||an>=157.5?0:an<67.5?1:an<112.5?2:3;
+  }
+
+  // --- Step 4: Non-maximum suppression ---
+  const nms=new Float32Array(w*h);
+  for(let y=1;y<h-1;y++) for(let x=1;x<w-1;x++){
+    const i=y*w+x, m=mag[i];
+    let n1,n2;
+    switch(dir[i]){
+      case 0: n1=mag[i-1];       n2=mag[i+1];       break;
+      case 1: n1=mag[(y-1)*w+x+1];n2=mag[(y+1)*w+x-1];break;
+      case 2: n1=mag[(y-1)*w+x]; n2=mag[(y+1)*w+x]; break;
+      default:n1=mag[(y-1)*w+x-1];n2=mag[(y+1)*w+x+1];
+    }
+    nms[i]=(m>=n1&&m>=n2)?m:0;
+  }
+
+  // --- Step 5: Double threshold + hysteresis ---
+  // Adaptive thresholds based on median of non-zero magnitudes
+  const nonzero=[]; for(let i=0;i<nms.length;i++) if(nms[i]>0) nonzero.push(nms[i]);
+  nonzero.sort((a,b)=>a-b);
+  const med = nonzero.length ? nonzero[Math.floor(nonzero.length*0.7)] : 50;
+  const hi=med*1.4, lo=med*0.4;
+  const edge=new Uint8Array(w*h);
+  for(let i=0;i<nms.length;i++) edge[i]=nms[i]>=hi?2:nms[i]>=lo?1:0;
+  // hysteresis: promote weak edges connected to strong
+  for(let y=1;y<h-1;y++) for(let x=1;x<w-1;x++){
+    if(edge[y*w+x]===1){
+      let found=false;
+      for(let dy=-1;dy<=1&&!found;dy++) for(let dx=-1;dx<=1;dx++){
+        if(edge[(y+dy)*w+(x+dx)]===2){found=true;}
+      }
+      edge[y*w+x]=found?2:0;
+    }
+  }
+  return edge; // 2 = edge pixel
+}
+
+/* Scan edge map row by row / col by col to find bounding extremes per quadrant */
+function findDocumentQuad(edge, w, h){
+  // Sample at reduced resolution for speed
+  const step=Math.max(1,Math.round(Math.min(w,h)/400));
+
+  // For each of 4 regions (corners), find the strongest edge cluster
+  // by casting rays from the boundary toward center
+  const margin=Math.round(Math.min(w,h)*0.05);
+
+  // Find convex hull of all edge pixels, then approximate to quad
+  const pts=[];
+  for(let y=margin;y<h-margin;y+=step) for(let x=margin;x<w-margin;x+=step){
+    if(edge[y*w+x]===2) pts.push([x,y]);
+  }
+  if(pts.length<20) return null;
+
+  // Compute bounding box first as fallback
+  let mnX=w,mnY=h,mxX=0,mxY=0;
+  pts.forEach(([x,y])=>{
+    if(x<mnX)mnX=x; if(y<mnY)mnY=y;
+    if(x>mxX)mxX=x; if(y>mxY)mxY=y;
+  });
+
+  // Find extreme points: topmost, bottommost, leftmost, rightmost
+  // Also find the 4 corners: min(x+y), max(x-y), max(x+y), min(x-y)
+  let tl=pts[0],tr=pts[0],bl=pts[0],br=pts[0];
+  pts.forEach(p=>{
+    const [x,y]=p;
+    if(x+y < tl[0]+tl[1]) tl=p;
+    if(x-y > tr[0]-tr[1]) tr=p;
+    if(y-x > bl[1]-bl[0]) bl=p;
+    if(x+y > br[0]+br[1]) br=p;
+  });
+
+  // Validate: quad should cover at least 40% of image area
+  const area=quadArea(tl,tr,bl,br);
+  const imgArea=w*h;
+  if(area/imgArea < 0.10){
+    // Try axis-aligned bbox
+    const pad=Math.round(Math.min(w,h)*0.01);
+    return {
+      tl:{x:Math.max(0,mnX-pad), y:Math.max(0,mnY-pad)},
+      tr:{x:Math.min(w,mxX+pad), y:Math.max(0,mnY-pad)},
+      bl:{x:Math.max(0,mnX-pad), y:Math.min(h,mxY+pad)},
+      br:{x:Math.min(w,mxX+pad), y:Math.min(h,mxY+pad)}
+    };
+  }
+
+  return {
+    tl:{x:tl[0],y:tl[1]},
+    tr:{x:tr[0],y:tr[1]},
+    bl:{x:bl[0],y:bl[1]},
+    br:{x:br[0],y:br[1]}
+  };
+}
+
+function quadArea(tl,tr,bl,br){
+  // Shoelace formula
+  const pts=[[tl[0],tl[1]],[tr[0],tr[1]],[br[0],br[1]],[bl[0],bl[1]]];
+  let a=0;
+  for(let i=0;i<4;i++){
+    const j=(i+1)%4;
+    a+=pts[i][0]*pts[j][1];
+    a-=pts[j][0]*pts[i][1];
+  }
+  return Math.abs(a)/2;
+}
+
+/* Refine detected quad by snapping each corner to the nearest strong edge pixel */
+function snapCornerToEdge(corner, edge, w, h, searchR){
+  const {x,y}=corner;
+  const r=Math.round(searchR);
+  let best=null, bestMag=-1;
+  for(let dy=-r;dy<=r;dy+=2) for(let dx=-r;dx<=r;dx+=2){
+    const nx=Math.round(x+dx), ny=Math.round(y+dy);
+    if(nx<0||ny<0||nx>=w||ny>=h) continue;
+    if(edge[ny*w+nx]===2){
+      const d=Math.hypot(dx,dy);
+      const score=bestMag<0?1:(1/(d+1));
+      if(score>bestMag){bestMag=score;best={x:nx,y:ny};}
+    }
+  }
+  return best||corner;
+}
+
 function autoCrop(){
   tool='crop'; rRect=null; brushPoints=[];
   document.querySelectorAll('.etbtn').forEach(b=>b.classList.remove('on'));
   document.getElementById('tCrop').classList.add('on');
   document.getElementById('redactBar').style.display='none';
+
   const src=history[history.length-1]||pages[edIdx].cur;
   const img=new Image();
   img.onload=()=>{
+    // Work at reduced size for speed, then scale results back
+    const MAX=800;
+    const scale=Math.min(1,MAX/Math.max(img.width,img.height));
+    const sw=Math.round(img.width*scale), sh=Math.round(img.height*scale);
+
     const c=document.createElement('canvas');
-    c.width=img.width;c.height=img.height;
-    const ctx=c.getContext('2d');ctx.drawImage(img,0,0);
-    const d=ctx.getImageData(0,0,c.width,c.height).data;
-    const bgR=d[0],bgG=d[1],bgB=d[2];
-    let mnX=c.width,mnY=c.height,mxX=0,mxY=0;
-    for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++){
-      const i=(y*c.width+x)*4;
-      if(Math.abs(d[i]-bgR)+Math.abs(d[i+1]-bgG)+Math.abs(d[i+2]-bgB)>80){
-        if(x<mnX)mnX=x;if(y<mnY)mnY=y;if(x>mxX)mxX=x;if(y>mxY)mxY=y;
-      }
-    }
-    const pad=20;
-    mnX=Math.max(0,mnX+pad);mnY=Math.max(0,mnY+pad);
-    mxX=Math.min(c.width,mxX-pad);mxY=Math.min(c.height,mxY-pad);
-    if(mxX-mnX>20&&mxY-mnY>20){
-      quad=rectToQuad(mnX,mnY,mxX-mnX,mxY-mnY);
+    c.width=sw; c.height=sh;
+    const ctx=c.getContext('2d');
+    ctx.drawImage(img,0,0,sw,sh);
+    const imgData=ctx.getImageData(0,0,sw,sh);
+
+    // Run Canny edge detection
+    const edge=cannyEdgeDetect(imgData.data,sw,sh);
+
+    // Find document quad
+    const q=findDocumentQuad(edge,sw,sh);
+
+    if(q){
+      // Scale back to full image coordinates
+      const S=1/scale;
+      const snap=r=>snapCornerToEdge(r,edge,sw,sh,Math.round(30*scale));
+      const tls=snap(q.tl), trs=snap(q.tr), bls=snap(q.bl), brs=snap(q.br);
+
+      quad={
+        tl:{x:Math.round(tls.x*S), y:Math.round(tls.y*S)},
+        tr:{x:Math.round(trs.x*S), y:Math.round(trs.y*S)},
+        bl:{x:Math.round(bls.x*S), y:Math.round(bls.y*S)},
+        br:{x:Math.round(brs.x*S), y:Math.round(brs.y*S)},
+      };
+      cropRect=null;
+      redrawEc();
+    } else {
+      // Ultimate fallback: full image with small margin
+      const m=Math.round(Math.min(img.width,img.height)*0.02);
+      quad=rectToQuad(m,m,img.width-2*m,img.height-2*m);
       cropRect=null;
       redrawEc();
     }
