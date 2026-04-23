@@ -1985,16 +1985,32 @@ function exportPDF(mode='download'){
         const reencoded=tmp.toDataURL('image/jpeg', pdfQ>=1 ? 0.95 : pdfQ);
         // Gerçek orana göre sayfa boyutu — A4'e zorlamaz
         // 72pt/inch, 96px/inch varsayımıyla px→pt
-        const PX2PT = 72/96;
-        let ptW = sw * PX2PT;
-        let ptH = sh * PX2PT;
-        // Maks A4 sınırı (A3 gibi devasa sayfalar olmasın)
-        const MAX_PT = 841.89;
-        if(ptW > MAX_PT || ptH > MAX_PT){
-          const r = Math.min(MAX_PT/ptW, MAX_PT/ptH);
-          ptW = ptW*r; ptH = ptH*r;
+        // A4 oranı: 1:√2 = 1:1.4142
+        // Görüntünün oranı A4'e %12 tolerans içindeyse → A4'e normalize et
+        // Aksi halde kendi gerçek oranında bırak
+        const A4_W=595.28, A4_H=841.89;
+        const A4_RATIO = A4_H / A4_W; // ~1.4142
+        const land = sw > sh;
+        const imgRatio = land ? (sw/sh) : (sh/sw); // her zaman uzun/kısa
+        const a4Ratio  = A4_RATIO;
+        const ratioDiff = Math.abs(imgRatio - a4Ratio) / a4Ratio;
+
+        let ptW, ptH;
+        if(ratioDiff < 0.15){
+          // A4'e yakın → tam A4 boyutuna sabitle
+          ptW = land ? A4_H : A4_W;
+          ptH = land ? A4_W : A4_H;
+        } else {
+          // Farklı belge (fiş, kare vb.) → gerçek oranını koru
+          const PX2PT = 72/96;
+          ptW = sw * PX2PT;
+          ptH = sh * PX2PT;
+          const MAX_PT = 841.89;
+          if(ptW > MAX_PT || ptH > MAX_PT){
+            const r = Math.min(MAX_PT/ptW, MAX_PT/ptH);
+            ptW *= r; ptH *= r;
+          }
         }
-        const land = ptW > ptH;
         if(!doc)doc=new jsPDF({orientation:land?'l':'p',unit:'pt',format:[ptW,ptH]});
         else doc.addPage([ptW,ptH],land?'l':'p');
         doc.addImage(reencoded,'JPEG',0,0,ptW,ptH,undefined,'FAST');
