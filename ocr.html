@@ -7,7 +7,7 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{height:100%;overflow:hidden;}
-body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;flex-direction:column;}
+body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;flex-direction:column;height:100%;overflow:hidden;}
 
 .topbar{background:#1a2a4a;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
 .topbar h1{font-size:15px;font-weight:700;}
@@ -23,6 +23,7 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
   flex:1;overflow:auto;background:#1a1a1a;
   display:flex;justify-content:center;align-items:flex-start;
   min-height:0;
+  -webkit-overflow-scrolling:touch;
 }
 
 /* wrapper that hugs the image exactly */
@@ -33,8 +34,10 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
 /* Alt panel — görüntünün altında kalıcı, başta gizli */
 #bottomPanel{
   display:none;flex-direction:column;flex-shrink:0;
-  max-height:38vh;border-top:2px solid #27ae60;
+  height:38vh;border-top:2px solid #27ae60;
   background:#0d1b35;
+  /* iOS Safari: -webkit- prefix gerekli */
+  -webkit-flex-shrink:0;
 }
 #bottomPanel .lbl{
   padding:5px 10px;font-size:11px;
@@ -51,6 +54,9 @@ body{font-family:'Segoe UI',sans-serif;background:#111;color:#fff;display:flex;f
   padding:10px 12px;font-size:13px;
   font-family:'Segoe UI',sans-serif;resize:none;outline:none;line-height:1.7;
   min-height:60px;
+  -webkit-user-select:text;user-select:text;
+  /* iOS readonly textarea scroll */
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
 }
 
 /* eski textwrap — artık kullanılmıyor ama var olsun */
@@ -295,10 +301,17 @@ async function runTesseract(dataUrl, isFullPage=false){
           setStatus('⏳ %'+Math.round(m.progress*100));
       }
     });
-    document.getElementById('ocrText').value=result.data.text.trim()||'(Metin bulunamadı)';
-    document.getElementById('bottomPanel').style.display='flex';
-    document.getElementById('scrollwrap').style.display='flex'; // görüntü kaybolmasın
-    setStatus('');
+    const resultText = result.data.text.trim()||'(Metin bulunamadı)';
+    // iOS Safari: DOM güncellemesini bir sonraki frame'e bırak
+    requestAnimationFrame(()=>{
+      document.getElementById('ocrText').value = resultText;
+      const bp = document.getElementById('bottomPanel');
+      bp.style.display = 'flex';
+      // iOS'ta display:flex bazen render edilmiyor — force reflow
+      bp.offsetHeight;
+      document.getElementById('scrollwrap').style.display='flex';
+      setStatus('');
+    });
   }catch(err){
     document.getElementById('scrollwrap').style.display='flex';
     setStatus('Hata: '+err.message);
@@ -317,10 +330,31 @@ function backToImage(){
 
 function copyText(){
   const t=document.getElementById('ocrText');
+  const txt=t.value;
+  if(!txt)return;
+  // Modern clipboard API
+  if(navigator.clipboard&&window.isSecureContext){
+    navigator.clipboard.writeText(txt).then(()=>{
+      setStatus('✓ Kopyalandı!');
+      setTimeout(()=>setStatus(''),2000);
+    }).catch(()=>fallbackCopy(t));
+  } else {
+    fallbackCopy(t);
+  }
+}
+function fallbackCopy(t){
+  // iOS eski yöntem: readonly kaldır, seç, kopyala
+  t.readOnly=false;
   t.select();
-  navigator.clipboard.writeText(t.value).catch(()=>document.execCommand('copy'));
-  setStatus('✓ Kopyalandı!');
-  setTimeout(()=>setStatus(''),2000);
+  t.setSelectionRange(0,99999);
+  try{
+    document.execCommand('copy');
+    setStatus('✓ Kopyalandı!');
+  }catch(e){
+    setStatus('Metni elle seç ve kopyala');
+  }
+  t.readOnly=true;
+  setTimeout(()=>setStatus(''),2500);
 }
 </script>
 </body>
