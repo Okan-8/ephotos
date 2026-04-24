@@ -938,11 +938,13 @@ async function generateWord() {
   showStatus('Generating Word document...', 'success');
   try {
     const { Document, Paragraph, Table, TableCell, TableRow, WidthType, TextRun,
-            AlignmentType, ImageRun, BorderStyle, ShadingType, VerticalAlign, Packer, PageNumber } = lib;
+            AlignmentType, ImageRun, BorderStyle, ShadingType, VerticalAlign, Packer, PageNumber, PageOrientation } = lib;
     const fd = getFormData();
     const rows = getRows();
-    const pageW=11906, mL=720, mR=720, mT=900, mB=900;
-    const contentW = pageW - mL - mR;
+    // Letter size: 12240 x 15840 twips (8.5" x 11"). orientation:LANDSCAPE ile ters çevrilir.
+    // contentW landscape içerik genişliği için hesaplanıyor: 15840 - mL - mR
+    const mL=720, mR=720, mT=720, mB=720;
+    const contentW = 15840 - mL - mR;
     const bThin = { style: BorderStyle.SINGLE, size: 4, color: '000000' };
     const bAll  = { top: bThin, bottom: bThin, left: bThin, right: bThin };
     const bNone = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
@@ -955,11 +957,12 @@ async function generateWord() {
       borders: { top: bNone, bottom: bNone, left: bNone, right: bNone, insideH: bNone, insideV: bNone },
       rows: [new TableRow({ children: [
         new TableCell({ borders: bNA, width: { size: Math.floor(contentW*0.55), type: WidthType.DXA },
-          children: [new Paragraph({ children: [new ImageRun({ data: logoBytes, transformation: { width: 150, height: 42 }, type: 'jpg' })] })] }),
+          verticalAlign: VerticalAlign.TOP,
+          children: [new Paragraph({ spacing: { before: 0, after: 0 }, children: [new ImageRun({ data: logoBytes, transformation: { width: 256, height: 72 }, type: 'jpg' })] })] }),
         new TableCell({ borders: bNA, width: { size: Math.ceil(contentW*0.45), type: WidthType.DXA },
-          verticalAlign: VerticalAlign.CENTER,
-          children: [new Paragraph({ alignment: AlignmentType.RIGHT,
-            children: [new TextRun({ text: 'Code: AU_TP_042, Ver 2.0', font: 'Calibri', size: 20, color: '999999' })] })] })
+          verticalAlign: VerticalAlign.TOP,
+          children: [new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { before: 0, after: 0 },
+            children: [new TextRun({ text: 'Code: AU_TP_042, Ver 2.0', font: 'Calibri', size: 20, color: '595959' })] })] })
       ]})]
     });
 
@@ -1003,7 +1006,7 @@ async function generateWord() {
         const w = idx < 2 ? cw : cw3;
         const imgRun = col.photo ? new ImageRun({
           data: Uint8Array.from(atob(col.photo.split(',')[1]), c => c.charCodeAt(0)),
-          transformation: { width: 210, height: 158 },
+          transformation: { width: 280, height: 210 },
           type: col.photo.startsWith('data:image/png') ? 'png' : 'jpg'
         }) : null;
         return new TableCell({ borders: bAll, width: { size: w, type: WidthType.DXA },
@@ -1037,14 +1040,14 @@ async function generateWord() {
     }
 
     const footerPara = new Paragraph({ children: [
-      new TextRun({ text: 'Audit \u2013 Photos Report: '+fd.reportNumber+'.docx , Page ', font: 'Calibri', size: 20, color: '999999' }),
-      new TextRun({ children: [PageNumber.CURRENT], font: 'Calibri', size: 20, color: '999999' }),
-      new TextRun({ text: ' of ', font: 'Calibri', size: 20, color: '999999' }),
-      new TextRun({ children: [PageNumber.TOTAL_PAGES], font: 'Calibri', size: 20, color: '999999' }),
+      new TextRun({ text: 'Audit \u2013 Photos Report: AU_TP_042_efcpa_standard-audit-photo-report_2.0 , Page ', font: 'Calibri', size: 20, color: '595959' }),
+      new TextRun({ children: [PageNumber.CURRENT], font: 'Calibri', size: 20, color: '595959' }),
+      new TextRun({ text: ' of ', font: 'Calibri', size: 20, color: '595959' }),
+      new TextRun({ children: [PageNumber.TOTAL_PAGES], font: 'Calibri', size: 20, color: '595959' }),
     ] });
 
     const doc = new Document({
-      sections: [{ properties: { page: { size: { width: pageW, height: 16838 }, margin: { top: mT, right: mR, bottom: mB, left: mL } } },
+      sections: [{ properties: { page: { size: { width: 12240, height: 15840, orientation: PageOrientation.LANDSCAPE }, margin: { top: mT, right: mR, bottom: mB, left: mL, header: 360, footer: 360 } } },
         headers: { default: { options: { children: [hdrTable, new Paragraph({ spacing: { after: 80 } })] } } },
         footers: { default: { options: { children: [footerPara] } } },
         children: [infoTable, new Paragraph({ spacing: { after: 100 } }), ...photoChildren] }]
@@ -1064,12 +1067,13 @@ function generatePDF() {
     const { jsPDF } = window.jspdf;
     const fd = getFormData();
     const rows = getRows();
-    const W=595.28, mg=28;
+    // Letter Landscape: 792 x 612 pt (11" x 8.5")
+    const W=792, H=612, mg=28;
     const tblW = W - mg*2;
     const photoW = tblW / 3;
     const photoH = photoW * 0.75;
     const metaH = 26;
-    const pageStart=50, pageEnd=820;
+    const pageStart=62, pageEnd=H-38;
 
     function calcPages() {
       let y = pageStart + 16 + 14*3 + 7;
@@ -1081,21 +1085,21 @@ function generatePDF() {
       return p;
     }
     const totalPages = calcPages();
-    const doc = new jsPDF({ unit:'pt', format:'a4' });
+    const doc = new jsPDF({ unit:'pt', format:'letter', orientation:'landscape' });
     let curPage = 1;
 
     function drawHdr() {
-      doc.addImage(LOGO_SRC,'JPEG',mg,8,110,31);
-      doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
-      doc.setTextColor(160,160,160);
-      doc.text('Code: AU_TP_042, Ver 2.0', W-mg, 21, { align:'right' });
+      doc.addImage(LOGO_SRC,'JPEG',mg,4,183,51);
+      doc.setFont('helvetica','normal'); doc.setFontSize(9);
+      doc.setTextColor(89,89,89);
+      doc.text('Code: AU_TP_042, Ver 2.0', W-mg, 20, { align:'right' });
     }
     function drawFtr(p) {
-      doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
-      doc.setTextColor(160,160,160);
-      doc.text('Audit \u2013 Photos Report: '+fd.reportNumber+'.docx , Page '+p+' of '+totalPages, mg, 835);
+      doc.setFont('helvetica','normal'); doc.setFontSize(9);
+      doc.setTextColor(89,89,89);
+      doc.text('Audit \u2013 Photos Report: AU_TP_042_efcpa_standard-audit-photo-report_2.0 , Page '+p+' of '+totalPages, mg, H-18);
     }
-    function nextPage() { drawFtr(curPage); doc.addPage(); curPage++; drawHdr(); return pageStart; }
+    function nextPage() { drawFtr(curPage); doc.addPage('letter','landscape'); curPage++; drawHdr(); return pageStart; }
 
     drawHdr();
     let y = pageStart;
