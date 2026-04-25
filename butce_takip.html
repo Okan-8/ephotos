@@ -495,6 +495,57 @@
     .rate-grid { grid-template-columns: 1fr; }
     .rate-grid .rate-actions { grid-column: span 1; }
   }
+  /* iPhone ve dar mobil ekranlar için tek kolonlu yerleşim */
+  @media (max-width: 600px) {
+    .app { padding: 12px 12px 40px; }
+    header.top { padding: 16px 18px; }
+    header.top h1 { font-size: 17px; }
+    header.top .subtitle { font-size: 11px; }
+    .total-card { min-width: 0; flex: 1 1 calc(50% - 7px); padding: 8px 12px; }
+    .total-card .val { font-size: 16px; }
+    .total-card .lbl { font-size: 9px; }
+    .card-head { padding: 12px 14px; }
+    .card-body { padding: 14px; }
+    .entry-grid {
+      grid-template-columns: 1fr !important;
+      gap: 10px;
+    }
+    .entry-grid .span-2,
+    .entry-grid .span-3,
+    .entry-grid .span-6 {
+      grid-column: span 1 !important;
+    }
+    .rate-grid {
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    .rate-grid .rate-actions { grid-column: span 1; justify-content: flex-start; }
+    .btn-row { flex-wrap: wrap; }
+    .actions { justify-content: stretch; }
+    .actions button { flex: 1; justify-content: center; }
+    .tabs { width: 100%; }
+    .tab { flex: 1; text-align: center; padding: 10px 8px; font-size: 12.5px; }
+    /* Form input ve labelları biraz büyüt — mobilde dokunmatik kullanım için */
+    input[type="text"], input[type="number"], input[type="date"], select, textarea {
+      font-size: 16px; /* iOS Safari'de zoom'u önler */
+      padding: 10px 12px;
+    }
+    .field label { font-size: 10.5px; }
+    /* Banka kart başlıkları ve satırları */
+    .bank-card-head { padding: 9px 12px; }
+    .bank-card-head .name { font-size: 13px; }
+    .bank-card-head .total { font-size: 12px; }
+    .bank-row { padding: 6px 12px; font-size: 12px; }
+    /* Başlık alanındaki butonlar */
+    .card-head h2 { font-size: 12px; }
+    .card-head > div { width: 100%; justify-content: flex-start; gap: 6px; }
+    .card-head button { padding: 7px 10px; font-size: 12px; }
+    /* Pagination dikey yığ */
+    .pagination { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px 12px; }
+    .pagination .controls { justify-content: center; flex-wrap: wrap; }
+    /* Filter popover mobilde geniş */
+    .filter-popover { max-width: calc(100vw - 20px); min-width: 200px; }
+  }
 </style>
 </head>
 <body>
@@ -503,7 +554,7 @@
   <header class="top">
     <div>
       <h1>Bütçe Takip</h1>
-      <div class="subtitle">Banka Hesapları · Faturalar - Bulut Projects</div>
+      <div class="subtitle">Banka Hesapları ve Faturalar</div>
     </div>
     <div class="totals">
       <div class="total-card">
@@ -547,7 +598,6 @@
         </div>
         <div class="field rate-actions">
           <div class="btn-row">
-            <button onclick="refreshRates()" class="primary" title="Kurları güncelle (doviz.com)">🔄 Kur</button>
             <button onclick="saveSessionJSON()" class="primary" title="JSON kaydet">💾</button>
             <button onclick="document.getElementById('jsonFileInput').click()" title="JSON yükle">📂</button>
             <button onclick="newSession()" class="ghost" title="Yeni oturum">✨</button>
@@ -841,48 +891,6 @@ function setRateInputs() {
   document.getElementById('rateEur').value = state.rates.eur;
   document.getElementById('rateGold').value = state.rates.gold;
   document.getElementById('rateSilver').value = state.rates.silver;
-}
-async function refreshRates() {
-  const tryUrls = [
-    'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://www.doviz.com'),
-    'https://corsproxy.io/?' + encodeURIComponent('https://www.doviz.com')
-  ];
-  toast('Kurlar güncelleniyor...', 'warning');
-  for (const url of tryUrls) {
-    try {
-      const res = await fetch(url, { method: 'GET' });
-      if (!res.ok) continue;
-      const txt = await res.text();
-      const parsed = parseDovizHtml(txt);
-      if (parsed && (parsed.usd || parsed.eur || parsed.gold || parsed.silver)) {
-        if (parsed.usd) state.rates.usd = parsed.usd;
-        if (parsed.eur) state.rates.eur = parsed.eur;
-        if (parsed.gold) state.rates.gold = parsed.gold;
-        if (parsed.silver) state.rates.silver = parsed.silver;
-        state.rates.updated = new Date().toISOString();
-        setRateInputs();
-        renderAll();
-        toast('Kurlar doviz.com üzerinden güncellendi', 'success');
-        return;
-      }
-    } catch (e) { /* try next */ }
-  }
-  toast('Otomatik güncelleme başarısız. Lütfen kurları manuel girin.', 'error');
-}
-function parseDovizHtml(html) {
-  try {
-    const out = {};
-    const mDolar = html.match(/DOLAR[\s\S]{0,80}?([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]+)/i);
-    const mEuro = html.match(/EURO[\s\S]{0,80}?([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]+)/i);
-    const mGold = html.match(/GRAM ALTIN[\s\S]{0,80}?([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]+)/i);
-    const mSilver = html.match(/GRAM G[ÜU]M[ÜU][ŞS][\s\S]{0,80}?([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]+)/i);
-    const parseN = s => parseFloat(s.replace(/\./g,'').replace(',','.'));
-    if (mDolar) out.usd = parseN(mDolar[1]);
-    if (mEuro) out.eur = parseN(mEuro[1]);
-    if (mGold) out.gold = parseN(mGold[1]);
-    if (mSilver) out.silver = parseN(mSilver[1]);
-    return out;
-  } catch(e) { return null; }
 }
 
 /* ===================== Tabs ===================== */
@@ -1546,7 +1554,7 @@ function renderBillTable() {
     return `<tr class="${editing}">
       <td><span class="badge bill">${escapeHtml(e.type)}</span></td>
       <td>${escapeHtml(e.month)}</td>
-      <td class="num sensitive">${fmtTry(e.amount)}</td>
+      <td class="num">${fmtTry(e.amount)}</td>
       <td>${fmtDate(e.due)}</td>
       <td>${statusBadge}</td>
       <td>${escapeHtml(e.desc || '')}</td>
@@ -1609,11 +1617,10 @@ function renderBankSummary() {
       const unit = isMetalType(t) ? ' g' :
                    t === 'Dolar' || t === 'Vadeli Dolar' ? ' $' :
                    t === 'Euro' ? ' €' : ' ₺';
-      const digits = 2;
       const countChip = d.count > 1 ? `<span class="count-chip">${d.count} hesap</span>` : '';
       return `<div class="bank-row">
         <div class="acc-name">${escapeHtml(t)}${countChip}</div>
-        <div class="acc-val">${fmt(d.amount, digits)}${unit}</div>
+        <div class="acc-val">${fmt(d.amount, 2)}${unit}</div>
         <div class="acc-try">${fmtTry(d.tryVal)}</div>
       </div>`;
     }).join('');
@@ -1835,39 +1842,37 @@ async function exportBillsExcel() {
 }
 
 /* ===================== PDF Export ===================== */
-// Türkçe karakterleri destekleyen Roboto fontu cdnjs'den yüklenir, jsPDF'e eklenir
-let _robotoFontLoaded = false;
-let _robotoFontData = null;
-async function loadTurkishFont(doc) {
-  if (!_robotoFontData) {
-    try {
-      // Roboto-Regular TTF, Türkçe karakterleri destekler
-      const url = 'https://cdn.jsdelivr.net/npm/@fontsource/roboto@4.5.8/files/roboto-latin-ext-400-normal.woff';
-      // WOFF dönüştürmesi karmaşık. Bunun yerine base64 TTF kullanalım.
-      // Public Roboto TTF base64'ü github'da hazır var; bunun yerine doğrudan TTF fetch edelim
-      const ttfUrl = 'https://cdn.jsdelivr.net/gh/google/fonts@main/apache/roboto/static/Roboto-Regular.ttf';
-      const res = await fetch(ttfUrl);
-      if (!res.ok) throw new Error('Font indirilemedi');
-      const buf = await res.arrayBuffer();
-      // ArrayBuffer → base64
-      let binary = '';
-      const bytes = new Uint8Array(buf);
-      for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-      _robotoFontData = btoa(binary);
-    } catch (err) {
-      console.warn('Türkçe font yüklenemedi, varsayılan font kullanılacak', err);
-      return false;
+// Türkçe karakterleri destekleyen Roboto fontu çalışma anında fetch edilip jsPDF'e eklenir
+let _ttfBase64 = null;
+async function ensureTurkishFont(doc) {
+  if (!_ttfBase64) {
+    // jsdelivr üzerinden Roboto TTF (latin-ext, Türkçe karakterleri destekler)
+    const urls = [
+      'https://cdn.jsdelivr.net/npm/@fontsource/roboto@5.0.8/files/roboto-latin-ext-400-normal.woff',
+      'https://cdn.jsdelivr.net/npm/dejavu-sans@1.0.0/fonts/DejaVuSans.ttf',
+      'https://raw.githubusercontent.com/googlefonts/roboto/main/src/hinted/Roboto-Regular.ttf'
+    ];
+    for (const url of urls) {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) continue;
+        const buf = await res.arrayBuffer();
+        let binary = '';
+        const bytes = new Uint8Array(buf);
+        for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+        _ttfBase64 = btoa(binary);
+        break;
+      } catch(e) { /* sıradakini dene */ }
     }
   }
+  if (!_ttfBase64) return false;
   try {
-    doc.addFileToVFS('Roboto-Regular.ttf', _robotoFontData);
-    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
-    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'bold');
-    doc.setFont('Roboto');
-    _robotoFontLoaded = true;
+    doc.addFileToVFS('CustomFont.ttf', _ttfBase64);
+    doc.addFont('CustomFont.ttf', 'CustomFont', 'normal');
+    doc.addFont('CustomFont.ttf', 'CustomFont', 'bold');
     return true;
-  } catch (err) {
-    console.warn('Font eklenemedi', err);
+  } catch(e) {
+    console.warn('Font eklenemedi:', e);
     return false;
   }
 }
@@ -1877,12 +1882,11 @@ async function exportPDF() {
   toast('PDF hazırlanıyor...','warning');
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
-  const ok = await loadTurkishFont(doc);
-  const fontName = ok ? 'Roboto' : 'helvetica';
-
+  const ok = await ensureTurkishFont(doc);
+  const fontName = ok ? 'CustomFont' : 'helvetica';
   doc.setFont(fontName);
   doc.setFontSize(14);
-  doc.text('Bütçe & Varlık Takip — Hesap Hareketleri', 14, 14);
+  doc.text('Bütçe Takip — Hesap Hareketleri', 14, 14);
   doc.setFontSize(9);
   doc.setTextColor(90);
   doc.text(`Oluşturma: ${new Date().toLocaleString('tr-TR')}  |  USD/TRY: ${fmt(state.rates.usd,4)}  EUR/TRY: ${fmt(state.rates.eur,4)}  Gr.Altın: ${fmt(state.rates.gold,2)}  Gr.Gümüş: ${fmt(state.rates.silver,2)}`, 14, 20);
@@ -1951,9 +1955,8 @@ async function exportBillsPDF() {
   toast('PDF hazırlanıyor...','warning');
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
-  const ok = await loadTurkishFont(doc);
-  const fontName = ok ? 'Roboto' : 'helvetica';
-
+  const ok = await ensureTurkishFont(doc);
+  const fontName = ok ? 'CustomFont' : 'helvetica';
   doc.setFont(fontName);
   doc.setFontSize(14);
   doc.text('Faturalar', 14, 14);
@@ -1989,7 +1992,6 @@ window.addEventListener('DOMContentLoaded', () => {
   const today = new Date().toISOString().slice(0,10);
   document.getElementById('aDate').value = today;
   renderAll();
-  setTimeout(() => { refreshRates().catch(()=>{}); }, 300);
 });
 </script>
 </body>
