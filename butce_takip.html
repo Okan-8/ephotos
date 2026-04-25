@@ -987,6 +987,37 @@
   </div>
 </div>
 
+<!-- Şifre modalı (kaydetme & yükleme için) -->
+<div class="period-overlay" id="passwordOverlay" onclick="closePasswordModal(event)">
+  <div class="period-modal" onclick="event.stopPropagation()" style="width:360px;">
+    <div class="period-head">
+      <div class="period-title" id="pwdTitle">Şifre Belirle</div>
+      <button class="period-close" onclick="closePasswordModal()" title="Kapat">✕</button>
+    </div>
+    <div style="padding:18px;">
+      <div id="pwdHelp" style="font-size:12.5px;color:var(--text-muted);margin-bottom:14px;line-height:1.5;">
+        JSON dosyanı şifreli kaydetmek istersen aşağıya bir şifre yaz. Şifresiz kaydetmek istersen <strong>"Şifresiz Kaydet"</strong> butonuna bas.
+      </div>
+      <div class="field" style="margin-bottom:10px;">
+        <label>Şifre</label>
+        <input type="password" id="pwdInput" placeholder="Şifre girin" autocomplete="off" onkeydown="if(event.key==='Enter')pwdConfirm()">
+      </div>
+      <div class="field" id="pwdConfirmRow">
+        <label>Şifre (tekrar)</label>
+        <input type="password" id="pwdInput2" placeholder="Şifreyi tekrar girin" autocomplete="off" onkeydown="if(event.key==='Enter')pwdConfirm()">
+      </div>
+      <div id="pwdError" style="font-size:12px;color:var(--danger);margin-top:8px;min-height:16px;"></div>
+    </div>
+    <div class="period-actions" style="justify-content:space-between;">
+      <button onclick="pwdSkipEncryption()" class="ghost" id="pwdSkipBtn">Şifresiz Kaydet</button>
+      <div style="display:flex;gap:8px;">
+        <button onclick="closePasswordModal()" class="ghost">İptal</button>
+        <button onclick="pwdConfirm()" class="primary" id="pwdConfirmBtn">Tamam</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1913,6 +1944,14 @@ document.addEventListener('keydown', (ev) => {
   if (ev.key === 'Escape') {
     closePopover();
     document.getElementById('periodOverlay').classList.remove('show');
+    // Şifre modalı açıksa kapat ve promise'ı iptal et
+    const pwdOverlay = document.getElementById('passwordOverlay');
+    if (pwdOverlay && pwdOverlay.classList.contains('show')) {
+      pwdOverlay.classList.remove('show');
+      if (typeof _pwdResolve !== 'undefined' && _pwdResolve) {
+        _pwdResolve(null); _pwdResolve = null;
+      }
+    }
   }
 });
 
@@ -2219,7 +2258,106 @@ function toast(msg, type='') {
 }
 
 /* ===================== Save / Load ===================== */
-function saveSessionJSON() {
+/* ===================== Şifreleme (AES-256-GCM + PBKDF2) ===================== */
+// Şifreden anahtar türet (PBKDF2-SHA256, 200.000 iterasyon)
+async function deriveKey(password, salt) {
+  const enc = new TextEncoder();
+  const baseKey = await crypto.subtle.importKey(
+    'raw', enc.encode(password), { name: 'PBKDF2' }, false, ['deriveKey']
+  );
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 200000, hash: 'SHA-256' },
+    baseKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+// Veriyi şifrele - şifreli paket döner: { encrypted: true, version, salt, iv, ciphertext }
+async function encryptPayload(payload, password) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv   = crypto.getRandomValues(new Uint8Array(12));
+  const key  = await deriveKey(password, salt);
+  const enc  = new TextEncoder();
+  const plaintext = enc.encode(JSON.stringify(payload));
+  const cipherBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plaintext);
+  return {
+    encrypted: true,
+    version: 1,
+    algo: 'AES-256-GCM',
+    kdf: 'PBKDF2-SHA256-200k',
+    salt: btoa(String.fromCharCode(...salt)),
+    iv:   btoa(String.fromCharCode(...iv)),
+    ciphertext: btoa(String.fromCharCode(...new Uint8Array(cipherBuf))),
+    savedAt: new Date().toISOString()
+  };
+}
+
+// Şifrelenmiş paketten orijinal veriyi çöz (yanlış şifrede hata fırlatır)
+async function decryptPayload(packet, password) {
+  const b64ToBytes = b64 => Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  const salt = b64ToBytes(packet.salt);
+  const iv   = b64ToBytes(packet.iv);
+  const ct   = b64ToBytes(packet.ciphertext);
+  const key  = await deriveKey(password, salt);
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+
+/* ===================== Şifre modalı ===================== */
+// Modal modları: 'save' (şifreli kaydet/atla) veya 'load' (şifreli dosya açma)
+let _pwdMode = null;
+let _pwdResolve = null;
+let _pwdLoadAttemptCount = 0;
+
+function openPasswordModal(mode) {
+  _pwdMode = mode;
+  document.getElementById('pwdInput').value = '';
+  document.getElementById('pwdInput2').value = '';
+  document.getElementById('pwdError').textContent = '';
+  if (mode === 'save') {
+    document.getElementById('pwdTitle').textContent = 'Şifreli Kaydet';
+    document.getElementById('pwdHelp').innerHTML = 'JSON dosyanı şifreli kaydetmek istersen aşağıya bir şifre yaz. Şifresiz kaydetmek istersen <strong>"Şifresiz Kaydet"</strong> butonuna bas. <br><br>⚠️ <strong>Şifreni unutursan dosyaya bir daha erişemezsin.</strong>';
+    document.getElementById('pwdConfirmRow').style.display = '';
+    document.getElementById('pwdSkipBtn').style.display = '';
+  } else {
+    document.getElementById('pwdTitle').textContent = 'Şifreyi Girin';
+    document.getElementById('pwdHelp').innerHTML = 'Bu JSON dosyası şifreli. Açmak için kaydederken kullandığın şifreyi gir.';
+    document.getElementById('pwdConfirmRow').style.display = 'none';
+    document.getElementById('pwdSkipBtn').style.display = 'none';
+  }
+  document.getElementById('passwordOverlay').classList.add('show');
+  setTimeout(() => document.getElementById('pwdInput').focus(), 50);
+  return new Promise(resolve => { _pwdResolve = resolve; });
+}
+
+function closePasswordModal(ev) {
+  if (ev && ev.target.id !== 'passwordOverlay') return;
+  document.getElementById('passwordOverlay').classList.remove('show');
+  if (_pwdResolve) { _pwdResolve(null); _pwdResolve = null; }
+}
+
+function pwdConfirm() {
+  const p1 = document.getElementById('pwdInput').value;
+  const errEl = document.getElementById('pwdError');
+  if (!p1) { errEl.textContent = 'Şifre boş olamaz'; return; }
+  if (_pwdMode === 'save') {
+    const p2 = document.getElementById('pwdInput2').value;
+    if (p1 !== p2) { errEl.textContent = 'Şifreler eşleşmiyor'; return; }
+    if (p1.length < 4) { errEl.textContent = 'Şifre en az 4 karakter olmalı'; return; }
+  }
+  document.getElementById('passwordOverlay').classList.remove('show');
+  if (_pwdResolve) { _pwdResolve({ password: p1 }); _pwdResolve = null; }
+}
+
+function pwdSkipEncryption() {
+  document.getElementById('passwordOverlay').classList.remove('show');
+  if (_pwdResolve) { _pwdResolve({ password: null, skip: true }); _pwdResolve = null; }
+}
+
+/* ===================== Save / Load ===================== */
+async function saveSessionJSON() {
   const payload = {
     version: 2,
     savedAt: new Date().toISOString(),
@@ -2227,38 +2365,102 @@ function saveSessionJSON() {
     accounts: state.accounts,
     bills: state.bills
   };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json' });
-  const fn = `butce_takip_${new Date().toISOString().slice(0,10)}.json`;
-  saveAs(blob, fn);
-  document.getElementById('sessionInfo').textContent = 'Kaydedildi: ' + fn;
-  toast('JSON dosyası indirildi','success');
+  // Şifre modalı aç
+  const result = await openPasswordModal('save');
+  if (!result) return; // İptal edildi
+
+  let blob, fn;
+  const dateStr = new Date().toISOString().slice(0,10);
+  if (result.skip) {
+    // Şifresiz kaydet
+    blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json' });
+    fn = `budget_${dateStr}.json`;
+    saveAs(blob, fn);
+    document.getElementById('sessionInfo').textContent = 'Kaydedildi (şifresiz): ' + fn;
+    toast('Şifresiz JSON indirildi','success');
+  } else {
+    // Şifreli kaydet
+    try {
+      toast('Şifreleniyor...','warning');
+      const encrypted = await encryptPayload(payload, result.password);
+      blob = new Blob([JSON.stringify(encrypted, null, 2)], { type:'application/json' });
+      fn = `budget_${dateStr}_encrypted.json`;
+      saveAs(blob, fn);
+      document.getElementById('sessionInfo').textContent = '🔒 Şifreli kaydedildi: ' + fn;
+      toast('🔒 Şifreli JSON indirildi','success');
+    } catch (err) {
+      console.error('Şifreleme hatası:', err);
+      toast('Şifreleme başarısız: ' + err.message, 'error');
+    }
+  }
 }
-function loadSessionFromFile(event) {
+
+async function loadSessionFromFile(event) {
   const file = event.target.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = (ev) => {
+  reader.onload = async (ev) => {
     try {
       const data = JSON.parse(ev.target.result);
-      if (data.rates) state.rates = Object.assign(state.rates, data.rates);
-      state.accounts = Array.isArray(data.accounts) ? data.accounts.slice() : [];
-      state.bills = Array.isArray(data.bills) ? data.bills.map(b => ({ paid: 'Ödenmedi', ...b })) : [];
-      state.filters = {};
-      state.billFilters = {};
-      state.accPage = 1;
-      state.billPage = 1;
-      setRateInputs();
-      cancelEdit();
-      renderAll();
-      document.getElementById('sessionInfo').textContent = `Yüklendi: ${file.name}`;
-      toast(`"${file.name}" yüklendi (${state.accounts.length} hesap, ${state.bills.length} fatura)`,'success');
+
+      // Şifreli mi?
+      if (data.encrypted === true) {
+        // Yanlış şifre denemelerine izin ver: maksimum 3 deneme
+        let attempts = 0;
+        let payload = null;
+        while (attempts < 3) {
+          const result = await openPasswordModal('load');
+          if (!result) {
+            // İptal edildi
+            event.target.value = '';
+            return;
+          }
+          try {
+            payload = await decryptPayload(data, result.password);
+            break;
+          } catch (decErr) {
+            attempts++;
+            if (attempts >= 3) {
+              toast('Şifre 3 kez yanlış girildi. Yükleme iptal.','error');
+              event.target.value = '';
+              return;
+            } else {
+              toast(`Şifre hatalı (${attempts}/3). Tekrar deneyin.`,'error');
+            }
+          }
+        }
+        if (!payload) { event.target.value = ''; return; }
+        // Çözülen veriyi yükle
+        applyLoadedPayload(payload, file.name, true);
+      } else {
+        // Şifresiz JSON: doğrudan yükle (geriye uyumluluk)
+        applyLoadedPayload(data, file.name, false);
+      }
     } catch (err) {
+      console.error(err);
       toast('JSON okunamadı: ' + err.message, 'error');
     }
     event.target.value = '';
   };
   reader.readAsText(file);
 }
+
+function applyLoadedPayload(data, fileName, wasEncrypted) {
+  if (data.rates) state.rates = Object.assign(state.rates, data.rates);
+  state.accounts = Array.isArray(data.accounts) ? data.accounts.slice() : [];
+  state.bills = Array.isArray(data.bills) ? data.bills.map(b => ({ paid: 'Ödenmedi', ...b })) : [];
+  state.filters = {};
+  state.billFilters = {};
+  state.accPage = 1;
+  state.billPage = 1;
+  setRateInputs();
+  cancelEdit();
+  renderAll();
+  const prefix = wasEncrypted ? '🔓 ' : '';
+  document.getElementById('sessionInfo').textContent = `${prefix}Yüklendi: ${fileName}`;
+  toast(`${prefix}"${fileName}" yüklendi (${state.accounts.length} hesap, ${state.bills.length} fatura)`,'success');
+}
+
 function newSession() {
   if ((state.accounts.length > 0 || state.bills.length > 0) && !confirm('Tüm kayıtlar temizlenecek. Emin misiniz?')) return;
   state.accounts = [];
@@ -2373,7 +2575,7 @@ async function exportExcel() {
   sh3.getColumn(2).numFmt = '#,##0.0000';
 
   const buf = await wb.xlsx.writeBuffer();
-  saveAs(new Blob([buf], { type:'application/octet-stream' }), `butce_takip_${new Date().toISOString().slice(0,10)}.xlsx`);
+  saveAs(new Blob([buf], { type:'application/octet-stream' }), `budget_${new Date().toISOString().slice(0,10)}.xlsx`);
   toast('Excel dosyası indirildi','success');
 }
 async function exportBillsExcel() {
@@ -2559,7 +2761,7 @@ async function exportPDF() {
       headStyles: { fillColor: [53,103,173], textColor: 255, fontStyle: 'bold', font: fontName },
       bodyStyles: { font: fontName }
     });
-    doc.save(`butce_takip_${new Date().toISOString().slice(0,10)}.pdf`);
+    doc.save(`budget_${new Date().toISOString().slice(0,10)}.pdf`);
     toast('PDF indirildi','success');
   } catch(err) {
     console.error('PDF oluşturma hatası:', err);
