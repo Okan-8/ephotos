@@ -734,11 +734,6 @@
     /* Filter popover mobilde geniş */
     .filter-popover { max-width: calc(100vw - 20px); min-width: 200px; }
   }
-  #pwdInput, #pwdInput2 {
-    padding: 12px 14px;
-    font-size: 16px;
-    height: 44px;
-  }
 </style>
 </head>
 <body>
@@ -821,6 +816,7 @@
       <div class="tabs">
         <div class="tab active" onclick="switchTab('accounts')" id="tabAccounts">💰 Hesap Durumu</div>
         <div class="tab" onclick="switchTab('bills')" id="tabBills">🧾 Fatura</div>
+        <div class="tab" onclick="switchTab('incomes')" id="tabIncomes">📈 Gelir</div>
       </div>
       <span id="entryBadge" style="display:none;font-size:11px;color:var(--accent);font-weight:600;">✎ Düzenleniyor</span>
     </div>
@@ -918,6 +914,41 @@
         <button onclick="saveBill()" class="primary" id="btnSubmitB">➕ Ekle</button>
       </div>
     </div>
+
+    <!-- Incomes (Gelir) -->
+    <div class="card-body hidden" id="incomesPanel">
+      <div class="entry-grid">
+        <div class="field">
+          <label>Tarih <span class="req">*</span></label>
+          <input type="date" id="iDate">
+        </div>
+        <div class="field">
+          <label>Dönem <span class="req">*</span></label>
+          <input type="text" id="iMonth" placeholder="Tıkla: Ocak 2026" autocomplete="off" readonly onclick="openPeriodPicker('iMonth')" style="cursor:pointer;background:#fff;">
+        </div>
+        <div class="field">
+          <label>Tür <span class="req">*</span></label>
+          <input type="text" id="iType" list="incomeTypeList" placeholder="Seçin veya yazın" autocomplete="off">
+          <datalist id="incomeTypeList">
+            <option value="Maaş"></option>
+            <option value="Faiz"></option>
+          </datalist>
+        </div>
+        <div class="field">
+          <label>Tutar (TL) <span class="req">*</span></label>
+          <input type="number" id="iAmount" step="0.01" placeholder="0.00">
+        </div>
+        <div class="field span-2">
+          <label>Açıklama</label>
+          <input type="text" id="iDesc" placeholder="Opsiyonel not">
+        </div>
+      </div>
+      <div class="actions">
+        <button onclick="cancelEdit()" class="ghost" id="btnCancelI" style="display:none;">İptal</button>
+        <button onclick="clearIncomeForm()" class="ghost">🧹 Temizle</button>
+        <button onclick="saveIncome()" class="primary" id="btnSubmitI">➕ Ekle</button>
+      </div>
+    </div>
   </div>
 
   <!-- Account table -->
@@ -964,6 +995,28 @@
     <div id="billTotals" class="totals-bar"></div>
     <div id="billPagination"></div>
   </div>
+
+  <!-- Incomes table -->
+  <div class="card">
+    <div class="card-head">
+      <h2>Gelirler (<span id="incCount">0</span>)</h2>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button onclick="clearAllIncFilters()" class="ghost">✕ Filtreleri Temizle</button>
+        <button onclick="exportIncomesExcel()" class="accent">⬇ Excel</button>
+        <button onclick="exportIncomesPDF()" class="accent">⬇ PDF</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="data" id="incTable">
+        <thead>
+          <tr id="incHeadRow"></tr>
+        </thead>
+        <tbody id="incTbody"></tbody>
+      </table>
+    </div>
+    <div id="incTotals" class="totals-bar"></div>
+    <div id="incPagination"></div>
+  </div>
 </div>
 
 <div class="filter-popover" id="filterPopover"></div>
@@ -1001,7 +1054,7 @@
     </div>
     <div style="padding:18px;">
       <div id="pwdHelp" style="font-size:12.5px;color:var(--text-muted);margin-bottom:14px;line-height:1.5;">
-        Şifresiz kaydetmek istersen <strong>"Şifresiz Kaydet"</strong> butonuna bas.
+        JSON dosyanı şifreli kaydetmek istersen aşağıya bir şifre yaz. Şifresiz kaydetmek istersen <strong>"Şifresiz Kaydet"</strong> butonuna bas.
       </div>
       <div class="field" style="margin-bottom:10px;">
         <label>Şifre</label>
@@ -1031,17 +1084,23 @@ const state = {
   rates: { usd: 45.02, eur: 52.79, gold: 6826.93, silver: 110.09, updated: null },
   accounts: [],
   bills: [],
+  incomes: [],
   editingAccountId: null,
   editingBillId: null,
+  editingIncomeId: null,
   sort: { key: 'date', dir: 'desc' },
   billSort: { key: 'due', dir: 'asc' },
+  incSort: { key: 'date', dir: 'desc' },
   filters: {},
   billFilters: {},
+  incFilters: {},
   openFilter: null,
   accPage: 1,
   accPageSize: 15,
   billPage: 1,
   billPageSize: 15,
+  incPage: 1,
+  incPageSize: 15,
   hidden: false
 };
 
@@ -1064,6 +1123,15 @@ const BILL_COLS = [
   { key:'amount',  label:'Tutar (₺)', filter:'range', sortable:true, align:'right' },
   { key:'due',     label:'Son Ödeme', filter:'date',  sortable:true },
   { key:'paid',    label:'Durum',     filter:'set',   sortable:true },
+  { key:'desc',    label:'Açıklama',  filter:'set',   sortable:true },
+  { key:'actions', label:'İşlem',     filter:null,    sortable:false }
+];
+
+const INC_COLS = [
+  { key:'date',    label:'Tarih',     filter:'date',  sortable:true },
+  { key:'month',   label:'Dönem',     filter:'set',   sortable:true },
+  { key:'type',    label:'Tür',       filter:'set',   sortable:true },
+  { key:'amount',  label:'Tutar (₺)', filter:'range', sortable:true, align:'right' },
   { key:'desc',    label:'Açıklama',  filter:'set',   sortable:true },
   { key:'actions', label:'İşlem',     filter:null,    sortable:false }
 ];
@@ -1138,15 +1206,17 @@ function getYearRange() {
   return arr;
 }
 
-let _periodPickerState = { month: null, year: null };
+let _periodPickerState = { month: null, year: null, targetInputId: 'bMonth' };
 
-function openPeriodPicker() {
+function openPeriodPicker(targetInputId) {
+  // Hangi input'a yazılacağını bilmek için saklıyoruz; argüman gelmezse fatura inputunu kullan
+  _periodPickerState.targetInputId = targetInputId || 'bMonth';
   const overlay = document.getElementById('periodOverlay');
   const monthWheel = document.getElementById('monthWheel');
   const yearWheel = document.getElementById('yearWheel');
 
   // Mevcut input değerini parse et, varsa onu seç; yoksa bu ay/yıl
-  const cur = document.getElementById('bMonth').value.trim();
+  const cur = document.getElementById(_periodPickerState.targetInputId).value.trim();
   let curMonth = MONTHS_TR[new Date().getMonth()];
   let curYear = new Date().getFullYear();
   const m = cur.match(/^([A-Za-zÇĞİÖŞÜçğıöşü]+)\s*(\d{4})?$/);
@@ -1239,7 +1309,7 @@ function applyPeriodPicker() {
   const m = _periodPickerState.month;
   const y = _periodPickerState.year;
   if (m && y) {
-    document.getElementById('bMonth').value = `${m} ${y}`;
+    document.getElementById(_periodPickerState.targetInputId || 'bMonth').value = `${m} ${y}`;
   }
   document.getElementById('periodOverlay').classList.remove('show');
 }
@@ -1267,8 +1337,10 @@ function setRateInputs() {
 function switchTab(tab) {
   document.getElementById('tabAccounts').classList.toggle('active', tab==='accounts');
   document.getElementById('tabBills').classList.toggle('active', tab==='bills');
+  document.getElementById('tabIncomes').classList.toggle('active', tab==='incomes');
   document.getElementById('accountsPanel').classList.toggle('hidden', tab!=='accounts');
   document.getElementById('billsPanel').classList.toggle('hidden', tab!=='bills');
+  document.getElementById('incomesPanel').classList.toggle('hidden', tab!=='incomes');
   cancelEdit();
 }
 
@@ -1519,6 +1591,56 @@ function renderBillTotals(arr) {
   `;
 }
 
+function renderIncTotals(arr) {
+  const c = document.getElementById('incTotals');
+  if (!arr || arr.length === 0) { c.innerHTML = ''; return; }
+  const total = arr.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  c.innerHTML = `
+    <div class="tot-group">
+      <span class="tot-label">Toplam Gelir:</span>
+      <span class="tot-val">${fmtTry(total)}</span>
+    </div>
+  `;
+}
+
+function renderIncPagination(totalPages, totalRows) {
+  const c = document.getElementById('incPagination');
+  if (totalRows === 0) { c.innerHTML = ''; return; }
+  const startRow = (state.incPage - 1) * state.incPageSize + 1;
+  const endRow = Math.min(state.incPage * state.incPageSize, totalRows);
+  let opts = '';
+  for (let i = 1; i <= totalPages; i++) {
+    opts += `<option value="${i}" ${i === state.incPage ? 'selected' : ''}>${i} / ${totalPages}</option>`;
+  }
+  c.innerHTML = `
+    <div class="pagination">
+      <div class="info">Gösterilen: ${startRow}–${endRow} / ${totalRows}</div>
+      <div class="controls">
+        <button onclick="goToIncPage(1)" ${state.incPage === 1 ? 'disabled' : ''} title="İlk">⏮</button>
+        <button onclick="goToIncPage(${state.incPage - 1})" ${state.incPage === 1 ? 'disabled' : ''} title="Önceki">◀</button>
+        <select onchange="goToIncPage(parseInt(this.value))" title="Sayfa">${opts}</select>
+        <button onclick="goToIncPage(${state.incPage + 1})" ${state.incPage === totalPages ? 'disabled' : ''} title="Sonraki">▶</button>
+        <button onclick="goToIncPage(${totalPages})" ${state.incPage === totalPages ? 'disabled' : ''} title="Son">⏭</button>
+        <select onchange="setIncPageSize(parseInt(this.value))" title="Sayfa boyutu" style="margin-left:8px;">
+          <option value="10" ${state.incPageSize === 10 ? 'selected' : ''}>10/sayfa</option>
+          <option value="15" ${state.incPageSize === 15 ? 'selected' : ''}>15/sayfa</option>
+          <option value="25" ${state.incPageSize === 25 ? 'selected' : ''}>25/sayfa</option>
+          <option value="50" ${state.incPageSize === 50 ? 'selected' : ''}>50/sayfa</option>
+          <option value="100" ${state.incPageSize === 100 ? 'selected' : ''}>100/sayfa</option>
+        </select>
+      </div>
+    </div>`;
+}
+function goToIncPage(p) {
+  state.incPage = p;
+  renderIncomeTable();
+}
+function setIncPageSize(s) {
+  state.incPageSize = s;
+  state.incPage = 1;
+  renderIncomeTable();
+}
+
 /* ===================== Hide mode ===================== */
 function toggleHide() {
   state.hidden = document.getElementById('hideToggle').checked;
@@ -1628,11 +1750,71 @@ function toggleBillPaid(id) {
 function cancelEdit() {
   state.editingAccountId = null;
   state.editingBillId = null;
+  state.editingIncomeId = null;
   document.getElementById('btnSubmitA').textContent = '➕ Ekle';
   document.getElementById('btnCancelA').style.display = 'none';
   document.getElementById('btnSubmitB').textContent = '➕ Ekle';
   document.getElementById('btnCancelB').style.display = 'none';
+  document.getElementById('btnSubmitI').textContent = '➕ Ekle';
+  document.getElementById('btnCancelI').style.display = 'none';
   document.getElementById('entryBadge').style.display = 'none';
+}
+
+/* ===================== Income (Gelir) CRUD ===================== */
+function clearIncomeForm() {
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('iDate').value = today;
+  document.getElementById('iMonth').value = '';
+  document.getElementById('iType').value = '';
+  document.getElementById('iAmount').value = '';
+  document.getElementById('iDesc').value = '';
+  cancelEdit();
+}
+function saveIncome() {
+  const date = document.getElementById('iDate').value;
+  const month = document.getElementById('iMonth').value.trim();
+  const type = document.getElementById('iType').value.trim();
+  const amount = parseFloat(document.getElementById('iAmount').value);
+  const desc = document.getElementById('iDesc').value.trim();
+  if (!date) return toast('Tarih zorunlu', 'error');
+  if (!month) return toast('Dönem zorunlu', 'error');
+  if (!type) return toast('Tür zorunlu', 'error');
+  if (isNaN(amount)) return toast('Tutar zorunlu', 'error');
+  const entry = {
+    id: state.editingIncomeId || uid(),
+    date, month, type, amount, desc
+  };
+  if (state.editingIncomeId) {
+    const idx = state.incomes.findIndex(e => e.id === state.editingIncomeId);
+    if (idx >= 0) state.incomes[idx] = entry;
+    toast('Gelir güncellendi','success');
+  } else {
+    state.incomes.push(entry);
+    toast('Gelir eklendi','success');
+  }
+  clearIncomeForm();
+  renderAll();
+}
+function editIncome(id) {
+  const e = state.incomes.find(x => x.id === id);
+  if (!e) return;
+  switchTab('incomes');
+  document.getElementById('iDate').value = e.date;
+  document.getElementById('iMonth').value = e.month;
+  document.getElementById('iType').value = e.type;
+  document.getElementById('iAmount').value = e.amount;
+  document.getElementById('iDesc').value = e.desc || '';
+  state.editingIncomeId = id;
+  document.getElementById('btnSubmitI').textContent = '💾 Güncelle';
+  document.getElementById('btnCancelI').style.display = '';
+  document.getElementById('entryBadge').style.display = '';
+  window.scrollTo({top: document.getElementById('tabAccounts').offsetTop - 20, behavior:'smooth'});
+}
+function deleteIncome(id) {
+  if (!confirm('Bu gelir kaydı silinecek. Emin misiniz?')) return;
+  state.incomes = state.incomes.filter(e => e.id !== id);
+  toast('Gelir silindi','success');
+  renderAll();
 }
 
 /* ===================== Table header builder ===================== */
@@ -1677,11 +1859,16 @@ function buildHeader(headRowId, cols, filters, sortState, onSort) {
 /* ===================== Filter popover ===================== */
 function openFilterPopover(key, tableId, anchorEl) {
   const pop = document.getElementById('filterPopover');
-  const isAcc = tableId === 'accHeadRow';
-  const cols = isAcc ? ACC_COLS : BILL_COLS;
+  let cols, data, filters, isMonthGrouped;
+  if (tableId === 'accHeadRow') {
+    cols = ACC_COLS; data = state.accounts; filters = state.filters; isMonthGrouped = false;
+  } else if (tableId === 'billHeadRow') {
+    cols = BILL_COLS; data = state.bills; filters = state.billFilters; isMonthGrouped = true;
+  } else if (tableId === 'incHeadRow') {
+    cols = INC_COLS; data = state.incomes; filters = state.incFilters; isMonthGrouped = true;
+  } else { return; }
   const col = cols.find(c => c.key === key);
   if (!col || !col.filter) return;
-  const filters = isAcc ? state.filters : state.billFilters;
 
   let html = `<div class="fp-title">${escapeHtml(col.label)}</div>`;
   if (col.sortable) {
@@ -1692,7 +1879,6 @@ function openFilterPopover(key, tableId, anchorEl) {
   }
 
   if (col.filter === 'set') {
-    const data = isAcc ? state.accounts : state.bills;
     let values;
     if (key === 'try') {
       values = [...new Set(data.map(e => entryToTry(e)))];
@@ -1702,8 +1888,8 @@ function openFilterPopover(key, tableId, anchorEl) {
         return v === undefined || v === null ? '' : v;
       }))];
     }
-    // Fatura "Dönem" kolonu için kronolojik sırala (yıl + ay), diğerleri alfabetik
-    if (key === 'month' && !isAcc) {
+    // Dönem kolonu için kronolojik sırala (yıl + ay), diğerleri alfabetik
+    if (key === 'month' && isMonthGrouped) {
       values.sort((a, b) => periodToNumber(b) - periodToNumber(a)); // en yeni → en eski
     } else {
       values.sort((a,b) => (a+'').localeCompare(b+'', 'tr'));
@@ -1713,7 +1899,7 @@ function openFilterPopover(key, tableId, anchorEl) {
     html += `<div class="fp-list" id="fpList">`;
     if (values.length === 0) {
       html += `<div style="padding:12px;font-size:12px;color:var(--text-muted);font-style:italic;">Henüz veri yok</div>`;
-    } else if (key === 'month' && !isAcc) {
+    } else if (key === 'month' && isMonthGrouped) {
       // Fatura dönem filtresi: yıllara göre gruplandır (en yeni yıl en üstte)
       const byYear = {};
       values.forEach(v => {
@@ -1881,48 +2067,57 @@ function fpSelectAll(check) {
     cb.indeterminate = false;
   });
 }
+// Yardımcı: tableId'ye göre ilgili filter objesini, render fonksiyonunu ve sayfa anahtarını döner
+function getTableContext(tableId) {
+  if (tableId === 'accHeadRow') return { filters: state.filters, render: renderAccountTable, pageKey: 'accPage', sortKey: 'sort' };
+  if (tableId === 'billHeadRow') return { filters: state.billFilters, render: renderBillTable, pageKey: 'billPage', sortKey: 'billSort' };
+  if (tableId === 'incHeadRow') return { filters: state.incFilters, render: renderIncomeTable, pageKey: 'incPage', sortKey: 'incSort' };
+  return null;
+}
+
 function applyFpSet(key, tableId) {
-  const filters = tableId === 'accHeadRow' ? state.filters : state.billFilters;
+  const ctx = getTableContext(tableId); if (!ctx) return;
   const excluded = [];
   document.querySelectorAll('#fpList .fp-opt input[type="checkbox"]').forEach(cb => {
     if (!cb.checked) excluded.push(cb.dataset.val);
   });
-  if (excluded.length === 0) delete filters[key];
-  else filters[key] = { type:'set', excluded };
+  if (excluded.length === 0) delete ctx.filters[key];
+  else ctx.filters[key] = { type:'set', excluded };
   closePopover();
-  if (tableId === 'accHeadRow') { state.accPage = 1; renderAccountTable(); }
-  else { state.billPage = 1; renderBillTable(); }
+  state[ctx.pageKey] = 1;
+  ctx.render();
 }
 function applyFpRange(key, tableId) {
-  const filters = tableId === 'accHeadRow' ? state.filters : state.billFilters;
+  const ctx = getTableContext(tableId); if (!ctx) return;
   const min = document.getElementById('fpMin').value;
   const max = document.getElementById('fpMax').value;
-  if (min === '' && max === '') delete filters[key];
-  else filters[key] = { type:'range', min, max };
+  if (min === '' && max === '') delete ctx.filters[key];
+  else ctx.filters[key] = { type:'range', min, max };
   closePopover();
-  if (tableId === 'accHeadRow') { state.accPage = 1; renderAccountTable(); }
-  else { state.billPage = 1; renderBillTable(); }
+  state[ctx.pageKey] = 1;
+  ctx.render();
 }
 function applyFpDate(key, tableId) {
-  const filters = tableId === 'accHeadRow' ? state.filters : state.billFilters;
+  const ctx = getTableContext(tableId); if (!ctx) return;
   const from = document.getElementById('fpFrom').value;
   const to = document.getElementById('fpTo').value;
-  if (!from && !to) delete filters[key];
-  else filters[key] = { type:'date', from, to };
+  if (!from && !to) delete ctx.filters[key];
+  else ctx.filters[key] = { type:'date', from, to };
   closePopover();
-  if (tableId === 'accHeadRow') { state.accPage = 1; renderAccountTable(); }
-  else { state.billPage = 1; renderBillTable(); }
+  state[ctx.pageKey] = 1;
+  ctx.render();
 }
 function clearFp(key, tableId) {
-  const filters = tableId === 'accHeadRow' ? state.filters : state.billFilters;
-  delete filters[key];
+  const ctx = getTableContext(tableId); if (!ctx) return;
+  delete ctx.filters[key];
   closePopover();
-  if (tableId === 'accHeadRow') { state.accPage = 1; renderAccountTable(); }
-  else { state.billPage = 1; renderBillTable(); }
+  state[ctx.pageKey] = 1;
+  ctx.render();
 }
 function sortFromPopover(key, tableId, dir) {
-  if (tableId === 'accHeadRow') { state.sort = { key, dir }; renderAccountTable(); }
-  else { state.billSort = { key, dir }; renderBillTable(); }
+  const ctx = getTableContext(tableId); if (!ctx) return;
+  state[ctx.sortKey] = { key, dir };
+  ctx.render();
   closePopover();
 }
 function clearAllAccFilters() {
@@ -1936,6 +2131,12 @@ function clearAllBillFilters() {
   state.billPage = 1;
   renderBillTable();
   toast('Fatura filtreleri temizlendi','success');
+}
+function clearAllIncFilters() {
+  state.incFilters = {};
+  state.incPage = 1;
+  renderIncomeTable();
+  toast('Gelir filtreleri temizlendi','success');
 }
 
 document.addEventListener('click', (ev) => {
@@ -2021,6 +2222,21 @@ function getFilteredSortedBills() {
     let va = a[state.billSort.key], vb = b[state.billSort.key];
     if (state.billSort.key === 'amount') return ((+va||0) - (+vb||0)) * dir;
     if (state.billSort.key === 'month') {
+      return (periodToNumber(va) - periodToNumber(vb)) * dir;
+    }
+    va = (va || '') + ''; vb = (vb || '') + '';
+    return va.localeCompare(vb, 'tr') * dir;
+  });
+  return arr;
+}
+
+function getFilteredSortedIncomes() {
+  let arr = state.incomes.filter(e => passesFilter(e, state.incFilters));
+  const dir = state.incSort.dir === 'asc' ? 1 : -1;
+  arr.sort((a, b) => {
+    let va = a[state.incSort.key], vb = b[state.incSort.key];
+    if (state.incSort.key === 'amount') return ((+va||0) - (+vb||0)) * dir;
+    if (state.incSort.key === 'month') {
       return (periodToNumber(va) - periodToNumber(vb)) * dir;
     }
     va = (va || '') + ''; vb = (vb || '') + '';
@@ -2170,6 +2386,53 @@ function sortBill(key) {
   renderBillTable();
 }
 
+/* ===================== Income table ===================== */
+function renderIncomeTable() {
+  buildHeader('incHeadRow', INC_COLS, state.incFilters, state.incSort, sortInc);
+  let arr = getFilteredSortedIncomes();
+
+  document.getElementById('incCount').textContent = arr.length;
+
+  const pageSize = state.incPageSize;
+  const totalPages = Math.max(1, Math.ceil(arr.length / pageSize));
+  if (state.incPage > totalPages) state.incPage = totalPages;
+  if (state.incPage < 1) state.incPage = 1;
+  const startIdx = (state.incPage - 1) * pageSize;
+  const pageArr = arr.slice(startIdx, startIdx + pageSize);
+
+  const tbody = document.getElementById('incTbody');
+  if (arr.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="${INC_COLS.length}" class="empty-row">Gelir kaydı yok. Yukarıdan ekleyin.</td></tr>`;
+    renderIncTotals([]);
+    renderIncPagination(totalPages, 0);
+    return;
+  }
+  tbody.innerHTML = pageArr.map(e => {
+    const editing = state.editingIncomeId === e.id ? 'editing' : '';
+    return `<tr class="${editing}">
+      <td>${fmtDate(e.date)}</td>
+      <td>${escapeHtml(e.month)}</td>
+      <td><span class="badge">${escapeHtml(e.type)}</span></td>
+      <td class="num sensitive">${fmtTry(e.amount)}</td>
+      <td>${escapeHtml(e.desc || '')}</td>
+      <td>
+        <div class="row-act">
+          <button class="icon-btn" onclick="editIncome('${e.id}')" title="Düzenle">✎</button>
+          <button class="icon-btn del" onclick="deleteIncome('${e.id}')" title="Sil">🗑</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+  renderIncTotals(arr);
+  renderIncPagination(totalPages, arr.length);
+  applyHideMode();
+}
+function sortInc(key) {
+  if (state.incSort.key === key) state.incSort.dir = state.incSort.dir === 'asc' ? 'desc' : 'asc';
+  else { state.incSort.key = key; state.incSort.dir = key === 'date' ? 'desc' : 'asc'; }
+  renderIncomeTable();
+}
+
 /* ===================== Bank summary ===================== */
 function computeBankSnapshot() {
   const latestByKey = {};
@@ -2247,6 +2510,7 @@ function renderTotals() {
 function renderAll() {
   renderAccountTable();
   renderBillTable();
+  renderIncomeTable();
   renderBankSummary();
   renderTotals();
   applyHideMode();
@@ -2364,11 +2628,12 @@ function pwdSkipEncryption() {
 /* ===================== Save / Load ===================== */
 async function saveSessionJSON() {
   const payload = {
-    version: 2,
+    version: 3,
     savedAt: new Date().toISOString(),
     rates: state.rates,
     accounts: state.accounts,
-    bills: state.bills
+    bills: state.bills,
+    incomes: state.incomes
   };
   // Şifre modalı aç
   const result = await openPasswordModal('save');
@@ -2454,26 +2719,32 @@ function applyLoadedPayload(data, fileName, wasEncrypted) {
   if (data.rates) state.rates = Object.assign(state.rates, data.rates);
   state.accounts = Array.isArray(data.accounts) ? data.accounts.slice() : [];
   state.bills = Array.isArray(data.bills) ? data.bills.map(b => ({ paid: 'Ödenmedi', ...b })) : [];
+  state.incomes = Array.isArray(data.incomes) ? data.incomes.slice() : [];
   state.filters = {};
   state.billFilters = {};
+  state.incFilters = {};
   state.accPage = 1;
   state.billPage = 1;
+  state.incPage = 1;
   setRateInputs();
   cancelEdit();
   renderAll();
   const prefix = wasEncrypted ? '🔓 ' : '';
   document.getElementById('sessionInfo').textContent = `${prefix}Yüklendi: ${fileName}`;
-  toast(`${prefix}"${fileName}" yüklendi (${state.accounts.length} hesap, ${state.bills.length} fatura)`,'success');
+  toast(`${prefix}"${fileName}" yüklendi (${state.accounts.length} hesap, ${state.bills.length} fatura, ${state.incomes.length} gelir)`,'success');
 }
 
 function newSession() {
-  if ((state.accounts.length > 0 || state.bills.length > 0) && !confirm('Tüm kayıtlar temizlenecek. Emin misiniz?')) return;
+  if ((state.accounts.length > 0 || state.bills.length > 0 || state.incomes.length > 0) && !confirm('Tüm kayıtlar temizlenecek. Emin misiniz?')) return;
   state.accounts = [];
   state.bills = [];
+  state.incomes = [];
   state.filters = {};
   state.billFilters = {};
+  state.incFilters = {};
   state.accPage = 1;
   state.billPage = 1;
+  state.incPage = 1;
   cancelEdit();
   renderAll();
   document.getElementById('sessionInfo').textContent = 'Yeni oturum';
@@ -2630,6 +2901,47 @@ async function exportBillsExcel() {
   const buf = await wb.xlsx.writeBuffer();
   saveAs(new Blob([buf], { type:'application/octet-stream' }), `faturalar_${new Date().toISOString().slice(0,10)}.xlsx`);
   toast('Fatura Excel indirildi','success');
+}
+
+async function exportIncomesExcel() {
+  const sortedIncomes = getFilteredSortedIncomes();
+  if (sortedIncomes.length === 0) return toast('Dışa aktarılacak gelir yok','error');
+  const wb = new ExcelJS.Workbook();
+  const sh = wb.addWorksheet('Gelirler', { views:[{state:'frozen', ySplit:1}] });
+  sh.columns = [
+    { header:'Tarih', key:'date', width:12 },
+    { header:'Dönem', key:'month', width:14 },
+    { header:'Tür', key:'type', width:18 },
+    { header:'Tutar (₺)', key:'amount', width:14 },
+    { header:'Açıklama', key:'desc', width:28 }
+  ];
+  sh.getRow(1).eachCell(c => {
+    c.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FF3567AD'} };
+    c.font = { color:{argb:'FFFFFFFF'}, bold:true };
+    c.alignment = { vertical:'center', horizontal:'center' };
+  });
+  sh.autoFilter = { from: 'A1', to: 'E1' };
+  sortedIncomes.forEach(e => {
+    sh.addRow({
+      date: e.date ? new Date(e.date) : '',
+      month: e.month, type: e.type, amount: e.amount,
+      desc: e.desc || ''
+    });
+  });
+  sh.getColumn('date').numFmt = 'dd.mm.yyyy';
+  sh.getColumn('amount').numFmt = '#,##0.00';
+
+  // Toplam satırı (filtrelenmiş)
+  const incTotal = sortedIncomes.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  sh.addRow([]);
+  const totRow = sh.addRow(['', '', 'TOPLAM GELİR:', incTotal, '']);
+  totRow.eachCell(c => { c.font = { bold: true }; c.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFE8EEF7'} }; });
+  totRow.getCell(3).alignment = { horizontal: 'right' };
+  totRow.getCell(4).numFmt = '#,##0.00 "₺"';
+
+  const buf = await wb.xlsx.writeBuffer();
+  saveAs(new Blob([buf], { type:'application/octet-stream' }), `gelirler_${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast('Gelir Excel indirildi','success');
 }
 
 /* ===================== PDF Export ===================== */
@@ -2822,6 +3134,52 @@ async function exportBillsPDF() {
   }
 }
 
+async function exportIncomesPDF() {
+  const sortedIncomes = getFilteredSortedIncomes();
+  if (sortedIncomes.length === 0) return toast('Dışa aktarılacak gelir yok','error');
+  try {
+    toast('PDF hazırlanıyor...','warning');
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+    let fontName = 'helvetica';
+    try {
+      const ok = await ensureTurkishFont(doc);
+      if (ok) fontName = 'CustomFont';
+    } catch(e) { console.warn('Font yüklenemedi, fallback:', e); }
+    doc.setFont(fontName);
+    doc.setFontSize(14);
+    doc.text('Gelirler', 14, 14);
+    doc.setFontSize(9);
+    doc.setTextColor(90);
+    doc.text(`Oluşturulma: ${new Date().toLocaleString('tr-TR')}`, 14, 20);
+    const rows = sortedIncomes.map(e => [
+      fmtDate(e.date), e.month, e.type, fmt(e.amount, 2) + ' ₺', e.desc || ''
+    ]);
+    const total = sortedIncomes.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    doc.autoTable({
+      startY: 25,
+      head: [['Tarih','Dönem','Tür','Tutar','Açıklama']],
+      body: rows,
+      styles: { font: fontName, fontSize: 9, cellPadding: 2 },
+      headStyles: { fillColor: [53,103,173], textColor: 255, fontStyle: 'bold', font: fontName },
+      bodyStyles: { font: fontName },
+      alternateRowStyles: { fillColor: [245, 246, 248] },
+      columnStyles: { 3: { halign: 'right' } }
+    });
+    const yAfter = doc.lastAutoTable.finalY + 8;
+    doc.setFont(fontName);
+    doc.setFontSize(10);
+    doc.setTextColor(40, 77, 130);
+    doc.text(`Toplam Gelir: ${fmt(total, 2)} ₺`, 14, yAfter);
+    doc.setTextColor(0);
+    doc.save(`gelirler_${new Date().toISOString().slice(0,10)}.pdf`);
+    toast('Gelir PDF indirildi','success');
+  } catch(err) {
+    console.error('PDF oluşturma hatası:', err);
+    toast('PDF oluşturulamadı: ' + err.message, 'error');
+  }
+}
+
 /* ===================== Init ===================== */
 window.addEventListener('DOMContentLoaded', () => {
   setRateInputs();
@@ -2830,6 +3188,7 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   const today = new Date().toISOString().slice(0,10);
   document.getElementById('aDate').value = today;
+  document.getElementById('iDate').value = today;
   renderAll();
 });
 </script>
