@@ -1,106 +1,128 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📺 Multi TV Viewer - Hybrid</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>📺 Multi TV Viewer</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #1a1a1a;
-            color: white;
+        html, body {
+            height: 100%;
             overflow: hidden;
         }
 
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a1a;
+            color: white;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ---------- Header ---------- */
         .header {
             background: #001f3f;
-            padding: 10px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            padding: 8px 10px;
+            padding-top: max(8px, env(safe-area-inset-top));
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            flex-shrink: 0;
+        }
+
+        .header-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            flex-wrap: wrap;
         }
 
         .header h1 {
-            font-size: 18px;
+            font-size: 16px;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
+            white-space: nowrap;
         }
 
         .controls {
             display: flex;
-            gap: 15px;
+            gap: 6px;
             align-items: center;
             flex-wrap: wrap;
         }
 
         .btn {
-            padding: 8px 16px;
+            padding: 8px 12px;
             border: none;
-            border-radius: 8px;
+            border-radius: 6px;
             cursor: pointer;
             font-weight: 600;
-            transition: all 0.3s;
-            font-size: 14px;
-        }
-
-        .btn-primary {
-            background: white;
-            color: #667eea;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(255,255,255,0.3);
-        }
-
-        .btn-secondary {
-            background: rgba(255,255,255,0.2);
-            color: white;
-            border: 2px solid rgba(255,255,255,0.3);
-        }
-
-        .btn-secondary:hover {
-            background: rgba(255,255,255,0.3);
-        }
-
-        .btn.active {
-            background: #4CAF50;
-            color: white;
-        }
-
-        .info-box {
-            background: rgba(255,255,255,0.15);
-            padding: 8px 15px;
-            border-radius: 8px;
             font-size: 13px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            transition: background 0.2s;
+            min-height: 36px;
+            white-space: nowrap;
         }
 
-        .warning-banner {
-            background: rgba(255, 152, 0, 0.2);
-            border-left: 4px solid #ff9800;
-            padding: 10px 20px;
+        .btn-layout {
+            background: rgba(255,255,255,0.15);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.25);
+        }
+
+        .btn-layout:hover, .btn-layout:active {
+            background: rgba(255,255,255,0.25);
+        }
+
+        .btn-layout.active {
+            background: #4CAF50;
+            border-color: #4CAF50;
+        }
+
+        .btn-action {
+            background: white;
+            color: #001f3f;
+        }
+
+        .btn-action:active {
+            background: #ddd;
+        }
+
+        .info-pill {
+            background: rgba(76, 175, 80, 0.25);
+            padding: 6px 10px;
+            border-radius: 14px;
             font-size: 12px;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 5px;
         }
 
+        /* ---------- Grid ---------- */
         .grid-container {
-            height: calc(100vh - 60px);
-            padding: 10px;
+            flex: 1;
+            padding: 6px;
             display: grid;
-            gap: 10px;
+            gap: 6px;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .grid-1x1 {
+            grid-template-columns: 1fr;
+            grid-template-rows: 1fr;
+        }
+
+        .grid-1x2 {
+            grid-template-columns: 1fr;
+            grid-template-rows: repeat(2, 1fr);
         }
 
         .grid-2x2 {
@@ -108,92 +130,63 @@
             grid-template-rows: repeat(2, 1fr);
         }
 
-        .grid-3x3 {
-            grid-template-columns: repeat(3, 1fr);
-            grid-template-rows: repeat(3, 1fr);
+        /* On wider screens (landscape / tablet / desktop), make 1x2 side-by-side */
+        @media (min-width: 700px) and (orientation: landscape) {
+            .grid-1x2 {
+                grid-template-columns: repeat(2, 1fr);
+                grid-template-rows: 1fr;
+            }
         }
 
-        .grid-1x2 {
-            grid-template-columns: repeat(2, 1fr);
-            grid-template-rows: 1fr;
-        }
-
+        /* ---------- TV Box ---------- */
         .tv-box {
             background: #2a2a2a;
-            border-radius: 10px;
+            border-radius: 8px;
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            border: 2px solid #3a3a3a;
-            transition: all 0.3s;
+            border: 1px solid #3a3a3a;
             min-height: 0;
-            height: 100%;
-        }
-
-        .tv-box:hover {
-            border-color: #667eea;
-            box-shadow: 0 0 20px rgba(102, 126, 234, 0.3);
+            min-width: 0;
+            position: relative;
         }
 
         .tv-header {
-            background: #333;
-            padding: 5px 8px;
+            background: #2f2f2f;
+            padding: 5px 6px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 8px;
-            min-height: 40px;
+            gap: 6px;
+            flex-shrink: 0;
         }
 
         .tv-header select {
             background: #444;
             color: white;
             border: 1px solid #555;
-            padding: 4px 8px;
-            border-radius: 6px;
+            padding: 6px 8px;
+            border-radius: 5px;
             cursor: pointer;
             font-size: 12px;
             flex: 1;
-            max-width: 200px;
+            min-width: 0;
+            min-height: 32px;
         }
 
-        .tv-header select:focus {
-            outline: none;
-            border-color: #667eea;
-        }
+        .tv-header select:focus { outline: none; border-color: #667eea; }
 
         .channel-badge {
             background: #4CAF50;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 9px;
             font-weight: bold;
+            flex-shrink: 0;
         }
+        .channel-badge.iptv { background: #ff9800; }
 
-        .channel-badge.iptv {
-            background: #ff9800;
-        }
-
-        .tv-controls {
-            display: flex;
-            gap: 8px;
-        }
-
-        .tv-btn {
-            background: #555;
-            border: none;
-            padding: 6px 10px;
-            border-radius: 6px;
-            cursor: pointer;
-            color: white;
-            font-size: 12px;
-            transition: all 0.3s;
-        }
-
-        .tv-btn:hover {
-            background: #667eea;
-        }
-
+        /* ---------- Screen ---------- */
         .tv-screen {
             flex: 1;
             background: #000;
@@ -213,28 +206,58 @@
             display: block;
         }
 
+        /* Floating overlay controls — absolute pos so they're always tappable */
+        .overlay-controls {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            display: flex;
+            gap: 5px;
+            z-index: 10;
+            opacity: 0.85;
+        }
+
+        .overlay-btn {
+            background: rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.25);
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 0;
+            -webkit-backdrop-filter: blur(4px);
+            backdrop-filter: blur(4px);
+        }
+
+        .overlay-btn:active { background: rgba(102, 126, 234, 0.9); }
+
         .placeholder {
-            color: #666;
-            font-size: 14px;
+            color: #888;
+            font-size: 13px;
             text-align: center;
-            padding: 20px;
+            padding: 16px;
         }
 
         .loading {
             color: #667eea;
-            font-size: 14px;
+            font-size: 13px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
         }
 
         .spinner {
             border: 3px solid rgba(102, 126, 234, 0.3);
             border-top: 3px solid #667eea;
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
+            width: 32px;
+            height: 32px;
             animation: spin 1s linear infinite;
         }
 
@@ -246,126 +269,186 @@
         .error-message {
             color: #ff5252;
             font-size: 12px;
-            padding: 10px;
+            padding: 12px;
             text-align: center;
         }
 
-        .volume-control {
+        .error-message button {
+            margin-top: 8px;
+            background: #555;
+            border: none;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        optgroup { font-weight: bold; background: #333; }
+        option { background: #444; padding: 5px; }
+
+        /* iOS hint banner (one-line, dismissible) */
+        .ios-hint {
+            background: rgba(255, 152, 0, 0.15);
+            border-left: 3px solid #ff9800;
+            padding: 6px 10px;
+            font-size: 11px;
             display: flex;
             align-items: center;
-            gap: 5px;
+            justify-content: space-between;
+            gap: 8px;
+            flex-shrink: 0;
         }
 
-        .volume-control input {
-            width: 60px;
+        .ios-hint button {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 0 4px;
         }
 
-        optgroup {
-            font-weight: bold;
-            background: #333;
-        }
-
-        option {
-            background: #444;
-            padding: 5px;
-        }
-
-        option:disabled {
-            color: #888;
-            font-style: italic;
+        /* Smaller header on narrow phones */
+        @media (max-width: 480px) {
+            .header h1 { font-size: 14px; }
+            .header h1 span:not(:first-child) { display: none; }
+            .btn { padding: 6px 10px; font-size: 12px; }
+            .info-pill { font-size: 11px; padding: 4px 8px; }
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>📺 Multi TV Viewer</h1>
-        <div class="controls">
-            <div class="info-box">
-                <span>🟢</span>
-                <span id="activeChannels">0 kanal aktif</span>
+        <div class="header-row">
+            <h1>📺 <span>Multi TV Viewer</span></h1>
+            <div class="controls">
+                <div class="info-pill">
+                    🟢 <span id="activeChannels">0 active</span>
+                </div>
+                <button class="btn btn-layout" data-layout="1x1" onclick="setGrid('1x1', this)">1</button>
+                <button class="btn btn-layout active" data-layout="1x2" onclick="setGrid('1x2', this)">1×2</button>
+                <button class="btn btn-layout" data-layout="2x2" onclick="setGrid('2x2', this)">2×2</button>
+                <button class="btn btn-action" onclick="muteAll()">🔇 Mute All</button>
+                <button class="btn btn-action" onclick="refreshAll()">🔄 Reload</button>
             </div>
-            <button class="btn btn-secondary active" onclick="setGrid('2x2')">2×2</button>
-            <button class="btn btn-secondary" onclick="setGrid('3x3')">3×3</button>
-            <button class="btn btn-secondary" onclick="setGrid('1x2')">1×2</button>
-            <button class="btn btn-primary" onclick="muteAll()">🔇 Tümünü Sustur</button>
-            <button class="btn btn-primary" onclick="refreshAll()">🔄 Yenile</button>
         </div>
     </div>
 
-    <div id="gridContainer" class="grid-container grid-2x2">
-        <!-- TV boxes will be generated here -->
+    <div class="ios-hint" id="iosHint" style="display:none;">
+        <span>ℹ️ On iPhone: tap a screen to unmute. Only one stream can play audio at a time.</span>
+        <button onclick="document.getElementById('iosHint').style.display='none'">✕</button>
     </div>
 
-    <!-- HLS.js library for M3U8 playback -->
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <div id="gridContainer" class="grid-container grid-1x2"></div>
 
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script>
-        // TV Kanalları - M3U Listesinden
+        // ---- TV Channels ----
+        // NOTE: Major Turkish private channels (Show TV, Star, ATV, Kanal D, Fox/Now)
+        // are protected by token + referrer checks. Direct m3u8 playback in a browser
+        // is unreliable and stops working frequently. TRT and news channels are the
+        // most stable.
         const TV_CHANNELS = {
             "": { type: "none", url: "", source: "" },
-            
-	    // Haber Kanalları (IPTV)
-	    "Halk TV": { type: "m3u8", url: "https://halktv-live.daioncdn.net/halktv/halktv.m3u8", source: "IPTV" },
-	    "Sözcü TV": { type: "m3u8", url: "https://trn03.tulix.tv/gt-sozcu-tv/playlist.m3u8", source: "IPTV" },
-            "NTV": { type: "m3u8", url: "http://dygvideo.dygdigital.com/live/hls/ntv4puhu?m3u8", source: "IPTV" },
-            "Habertürk": { type: "m3u8", url: "https://tv.ensonhaber.com/haberturk/haberturk.m3u8", source: "IPTV" },
-            "Haber Global": { type: "m3u8", url: "https://tv.ensonhaber.com/haberglobal/haberglobal.m3u8", source: "IPTV" },
-            "Bloomberg HT": { type: "m3u8", url: "https://ciner.daioncdn.net/bloomberght/bloomberght.m3u8", source: "IPTV" },
-            "CNN Türk": { type: "m3u8", url: "https://dsmartgo-live.ercdn.net/dsmartgo/cnnturk/cnnturk.isml/cnnturk.m3u8", source: "IPTV" },
-            "360 TV": { type: "m3u8", url: "https://turkmedya-live.ercdn.net/tv360/tv360.m3u8", source: "IPTV" },
-            "Tele 1": { type: "m3u8", url: "https://tele1-live.ercdn.net/tele1/tele1.m3u8", source: "IPTV" },
-            "Beyaz TV": { type: "m3u8", url: "https://beyaztv.daioncdn.net/beyaztv/beyaztv.m3u8?app=fcd5c66b-da9d-44ba-a410-4f34805c397d&ce=3", source: "IPTV" },     
-            "24 TV": { type: "m3u8", url: "https://tv.ensonhaber.com/tv24/tv24.m3u8", source: "IPTV" },
-            "TVNET": { type: "m3u8", url: "https://mn-nl.mncdn.com/tvnet/tvnet/playlist.m3u8", source: "IPTV" },
-            "A Haber": { type: "m3u8", url: "http://65.108.239.207/ahaber/index.m3u8", source: "IPTV" },
-            "TGRT Haber": { type: "m3u8", url: "https://canli.tgrthaber.com/tgrt.m3u8", source: "IPTV" },
 
-            // TRT Kanalları - Resmi M3U8 Stream'ler (Garantili)
-            "TRT 1": { type: "m3u8", url: "https://tv-trt1.medya.trt.com.tr/master.m3u8", source: "TRT" },
-            "TRT Haber": { type: "m3u8", url: "https://tv-trthaber.medya.trt.com.tr/master.m3u8", source: "TRT" },
-            "TRT Spor": { type: "m3u8", url: "https://tv-trtspor1.medya.trt.com.tr/master.m3u8", source: "TRT" },
-            "TRT Belgesel": { type: "m3u8", url: "https://tv-trtbelgesel.medya.trt.com.tr/master.m3u8", source: "TRT" },
-            "TRT Müzik": { type: "m3u8", url: "https://tv-trtmuzik.medya.trt.com.tr/master.m3u8", source: "TRT" },
-            "TRT World": { type: "m3u8", url: "https://tv-trtworld.medya.trt.com.tr/master.m3u8", source: "TRT" },
-            
-            // Ulusal Kanallar (IPTV)
-	    "Now TV": { type: "m3u8", url: "http://116.202.238.88/FOXTV_TR/index.m3u8", source: "IPTV" },
-            "ATV": { type: "m3u8", url: "http://116.202.238.88/ATV_TR/tracks-v1a1/index.m3u8", source: "IPTV" },
-            "Show TV": { type: "m3u8", url: "https://ciner.daioncdn.net/showtv/showtv.m3u8?ce=3&app=4bc856ef-4c68-4a94-bc87-37dfaaa66558", source: "IPTV" },
-            "Star TV": { type: "m3u8", url: "https://raw.githubusercontent.com/ipstreet312/freeiptv/refs/heads/master/ressources/tur/star.m3u8", source: "IPTV" },
-            "Kanal D": { type: "m3u8", url: "http://live.duhnet.tv/S2/HLS_LIVE/kanalddainp/playlist.m3u8", source: "IPTV" },
-            "TV 100": { type: "m3u8", url: "https://tv100-live.daioncdn.net/tv100/tv100_1080p.m3u8", source: "IPTV" },
-	    "TV8": { type: "m3u8", url: "https://tv8.daioncdn.net/tv8/tv8.m3u8?app=7ddc255a-ef47-4e81-ab14-c0e5f2949788", source: "IPTV" },
-                        
-            // Spor Kanalları (IPTV)
-            "HT Spor": { type: "m3u8", url: "https://ciner-live.ercdn.net/htspor/htspor.m3u8", source: "IPTV" },
-            "A Spor": { type: "m3u8", url: "https://rnttwmjcin.turknet.ercdn.net/lcpmvefbyo/aspor/aspor_720p.m3u8", source: "IPTV" },
-            "TRT Spor Yıldız": { type: "m3u8", url: "https://tv-trtspor2.medya.trt.com.tr/master.m3u8", source: "IPTV" },
-           "Sports TV": { type: "m3u8", url: "https://live.sportstv.com.tr/hls/low/sportstv_hd/index.m3u8", source: "IPTV" },
-            
-            // Eğlence Kanalları (IPTV)
-	    "TRT 2": { type: "m3u8", url: "https://tv-trt2.medya.trt.com.tr/master.m3u8", source: "IPTV" },
-	    "TEVE2": { type: "m3u8", url: "http://live.duhnet.tv/S2/HLS_LIVE/teve2np/playlist.m3u8", source: "IPTV" },
-            "TLC": { type: "m3u8", url: "http://dygvideo.dygdigital.com/live/hls/tlctvdai?m3u8", source: "IPTV" },
-            "DMAX": { type: "m3u8", url: "http://dygvideo.dygdigital.com/live/hls/dmaxdai?m3u8", source: "IPTV" },
-            "A2": { type: "m3u8", url: "https://rnttwmjcin.turknet.ercdn.net/lcpmvefbyo/a2tv/a2tv.m3u8", source: "IPTV" },
-                                 
-            
+            // ---- TRT (Official, most reliable) ----
+            "TRT 1":         { url: "https://tv-trt1.medya.trt.com.tr/master.m3u8",          source: "TRT" },
+            "TRT 2":         { url: "https://tv-trt2.medya.trt.com.tr/master.m3u8",          source: "TRT" },
+            "TRT Haber":     { url: "https://tv-trthaber.medya.trt.com.tr/master.m3u8",      source: "TRT" },
+            "TRT Spor":      { url: "https://tv-trtspor1.medya.trt.com.tr/master.m3u8",      source: "TRT" },
+            "TRT Spor Yıldız": { url: "https://tv-trtspor2.medya.trt.com.tr/master.m3u8",    source: "TRT" },
+            "TRT Belgesel":  { url: "https://tv-trtbelgesel.medya.trt.com.tr/master.m3u8",   source: "TRT" },
+            "TRT Müzik":     { url: "https://tv-trtmuzik.medya.trt.com.tr/master.m3u8",      source: "TRT" },
+            "TRT Çocuk":     { url: "https://tv-trtcocuk.medya.trt.com.tr/master.m3u8",      source: "TRT" },
+            "TRT World":     { url: "https://tv-trtworld.medya.trt.com.tr/master.m3u8",      source: "TRT" },
+            "TRT Avaz":      { url: "https://tv-trtavaz.medya.trt.com.tr/master.m3u8",       source: "TRT" },
+            "TRT Kurdî":     { url: "https://tv-trtkurdi.medya.trt.com.tr/master.m3u8",      source: "TRT" },
+
+            // ---- News ----
+            "Halk TV":       { url: "https://halktv-live.daioncdn.net/halktv/halktv.m3u8",   source: "IPTV" },
+            "Sözcü TV":      { url: "https://trn03.tulix.tv/gt-sozcu-tv/playlist.m3u8",     source: "IPTV" },
+            "NTV":           { url: "https://dygvideo.dygdigital.com/live/hls/ntv4puhu",    source: "IPTV" },
+            "Habertürk":     { url: "https://tv.ensonhaber.com/haberturk/haberturk.m3u8",   source: "IPTV" },
+            "Haber Global":  { url: "https://tv.ensonhaber.com/haberglobal/haberglobal.m3u8", source: "IPTV" },
+            "Bloomberg HT":  { url: "https://ciner.daioncdn.net/bloomberght/bloomberght.m3u8", source: "IPTV" },
+            "CNN Türk":      { url: "https://dsmartgo-live.ercdn.net/dsmartgo/cnnturk/cnnturk.isml/cnnturk.m3u8", source: "IPTV" },
+            "Tele 1":        { url: "https://tele1-live.ercdn.net/tele1/tele1.m3u8",        source: "IPTV" },
+            "TV 100":        { url: "https://tv100-live.daioncdn.net/tv100/tv100_1080p.m3u8", source: "IPTV" },
+            "TV Net":        { url: "https://mn-nl.mncdn.com/tvnet/tvnet/playlist.m3u8",    source: "IPTV" },
+            "24 TV":         { url: "https://tv.ensonhaber.com/tv24/tv24.m3u8",             source: "IPTV" },
+            "TGRT Haber":    { url: "https://canli.tgrthaber.com/tgrt.m3u8",                source: "IPTV" },
+            "Beyaz TV":      { url: "https://beyaztv.daioncdn.net/beyaztv/beyaztv.m3u8?app=fcd5c66b-da9d-44ba-a410-4f34805c397d&ce=3", source: "IPTV" },
+            "A Haber":       { url: "https://trkvz-live.daioncdn.net/ahaber/ahaber.m3u8",   source: "IPTV" },
+            "360":           { url: "https://turkmedya-live.ercdn.net/tv360/tv360.m3u8",    source: "IPTV" },
+
+            // ---- National (often token-protected, may break) ----
+            "Show TV":       { url: "https://ciner-live.daioncdn.net/showtv/showtv.m3u8",   source: "IPTV" },
+            "Star TV":       { url: "https://dogus-live.daioncdn.net/startv/startv.m3u8",  source: "IPTV" },
+            "Kanal D":       { url: "https://live.duhnet.tv/S2/HLS_LIVE/kanalddainp/playlist.m3u8", source: "IPTV" },
+            "ATV":           { url: "https://trkvz-live.daioncdn.net/atv/atv.m3u8",         source: "IPTV" },
+            "Now TV":        { url: "https://ciner-live.daioncdn.net/nowtv/nowtv.m3u8",     source: "IPTV" },
+            "TV8":           { url: "https://tv8.daioncdn.net/tv8/tv8.m3u8?app=7ddc255a-ef47-4e81-ab14-c0e5f2949788", source: "IPTV" },
+            "Teve2":         { url: "https://live.duhnet.tv/S2/HLS_LIVE/teve2np/playlist.m3u8", source: "IPTV" },
+
+            // ---- Sports ----
+            "A Spor":        { url: "https://trkvz-live.daioncdn.net/aspor/aspor.m3u8",     source: "IPTV" },
+            "HT Spor":       { url: "https://ciner-live.ercdn.net/htspor/htspor.m3u8",     source: "IPTV" },
+            "Sports TV":     { url: "https://live.sportstv.com.tr/hls/low/sportstv_hd/index.m3u8", source: "IPTV" },
+
+            // ---- Entertainment ----
+            "TLC":           { url: "https://dygvideo.dygdigital.com/live/hls/tlctvdai",    source: "IPTV" },
+            "DMAX":          { url: "https://dygvideo.dygdigital.com/live/hls/dmaxdai",     source: "IPTV" },
+            "A2":            { url: "https://trkvz-live.daioncdn.net/a2tv/a2tv.m3u8",       source: "IPTV" }
         };
 
-        let currentGrid = '2x2';
-        let tvBoxes = [];
+        // ---- Channel groupings (for the dropdown) ----
+        const CHANNEL_GROUPS = [
+            { label: "📡 TRT (Official)", channels: ["TRT 1","TRT 2","TRT Haber","TRT Spor","TRT Spor Yıldız","TRT Belgesel","TRT Müzik","TRT Çocuk","TRT World","TRT Avaz","TRT Kurdî"] },
+            { label: "📰 News",           channels: ["Halk TV","Sözcü TV","NTV","Habertürk","Haber Global","Bloomberg HT","CNN Türk","Tele 1","TV 100","TV Net","24 TV","TGRT Haber","Beyaz TV","A Haber","360"] },
+            { label: "📺 National",       channels: ["Show TV","Star TV","Kanal D","ATV","Now TV","TV8","Teve2"] },
+            { label: "⚽ Sports",         channels: ["A Spor","HT Spor","Sports TV"] },
+            { label: "🎬 Entertainment",  channels: ["TLC","DMAX","A2"] }
+        ];
 
-        // Initialize
+        // ---- State ----
+        let currentGrid = '1x2';
+        let tvBoxes = [];
+        // Soloed box index — only this one has audio. -1 = all muted.
+        let soloIndex = -1;
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+        // ---- Init ----
         function init() {
-            createTVBoxes(4); // Start with 2x2 (4 boxes)
+            if (isIOS) document.getElementById('iosHint').style.display = 'flex';
+            createTVBoxes(2); // start with 1x2
         }
 
-        // Create TV boxes
+        function generateChannelOptions() {
+            let html = '<option value="">Select channel</option>';
+            for (const group of CHANNEL_GROUPS) {
+                html += `<optgroup label="${group.label}">`;
+                for (const name of group.channels) {
+                    if (TV_CHANNELS[name]) {
+                        html += `<option value="${name}">${name}</option>`;
+                    }
+                }
+                html += '</optgroup>';
+            }
+            return html;
+        }
+
         function createTVBoxes(count) {
             const container = document.getElementById('gridContainer');
+            // Tear down existing players cleanly
+            tvBoxes.forEach(box => {
+                if (box.hls) { try { box.hls.destroy(); } catch(e){} }
+                if (box.video) { try { box.video.pause(); box.video.src = ''; } catch(e){} }
+            });
             container.innerHTML = '';
             tvBoxes = [];
+            soloIndex = -1;
 
             for (let i = 0; i < count; i++) {
                 const box = document.createElement('div');
@@ -376,334 +459,239 @@
                             ${generateChannelOptions()}
                         </select>
                         <span class="channel-badge" id="badge-${i}" style="display:none;">TRT</span>
-                        <div class="tv-controls">
-                            <div class="volume-control">
-                                <span style="font-size: 12px;">🔊</span>
-                                <input type="range" min="0" max="100" value="50" 
-                                       onchange="setVolume(${i}, this.value)" 
-                                       style="width: 70px;">
-                            </div>
-                            <button class="tv-btn" onclick="toggleMute(${i})">🔇</button>
-                            <button class="tv-btn" onclick="fullscreen(${i})">⛶</button>
-                        </div>
                     </div>
                     <div class="tv-screen" id="screen-${i}">
-                        <div class="placeholder">📺 Kanal seçiniz</div>
+                        <div class="overlay-controls">
+                            <button class="overlay-btn" id="mute-${i}" onclick="toggleSolo(${i})" title="Toggle audio">🔇</button>
+                            <button class="overlay-btn" onclick="fullscreen(${i})" title="Fullscreen">⛶</button>
+                        </div>
+                        <div class="placeholder">📺 Select a channel</div>
                     </div>
                 `;
                 container.appendChild(box);
                 tvBoxes.push({
                     element: box,
-                    screen: document.getElementById(`screen-${i}`),
-                    select: document.getElementById(`select-${i}`),
-                    badge: document.getElementById(`badge-${i}`),
+                    screen: box.querySelector(`#screen-${i}`),
+                    select: box.querySelector(`#select-${i}`),
+                    badge: box.querySelector(`#badge-${i}`),
+                    muteBtn: box.querySelector(`#mute-${i}`),
                     currentChannel: null,
                     video: null,
-                    hls: null,
-                    muted: false
+                    hls: null
                 });
             }
             updateActiveChannels();
+            updateMuteButtons();
         }
 
-        // Generate channel options with grouping
-        function generateChannelOptions() {
-            let options = '<option value="">Seçiniz</option>';
-
-            // Haber Kanalları
-            options += '<optgroup label="📰 Haber Kanalları">';
-            const haberChannels = ['Halk TV', 'Sözcü TV', 'NTV', 'Habertürk', 'Haber Global', 'Bloomberg HT', 'CNN Türk', '360 TV', 'Tele 1', 'Beyaz TV', 'TVNET', '24 TV',  'A Haber', 'TGRT Haber'];
-            for (const name of haberChannels) {
-                if (TV_CHANNELS[name]) {
-                    options += `<option value="${name}">${name}</option>`;
-                }
-            }
-            options += '</optgroup>';
-            
-            // TRT Kanalları
-            options += '<optgroup label="📡 TRT Kanalları (Resmi)">';
-            for (const [name, data] of Object.entries(TV_CHANNELS)) {
-                if (data.source === 'TRT') {
-                    options += `<option value="${name}">${name}</option>`;
-                }
-            }
-            options += '</optgroup>';
-            
-            // Ulusal Kanallar
-            options += '<optgroup label="📺 Ulusal Kanallar">';
-            const ulusalChannels = ['Show TV', 'Star TV', 'Kanal D', 'Now TV', 'ATV', 'TV8', 'TV 100'];
-            for (const name of ulusalChannels) {
-                if (TV_CHANNELS[name]) {
-                    options += `<option value="${name}">${name}</option>`;
-                }
-            }
-            options += '</optgroup>';
-          
-            
-            // Spor Kanalları
-            options += '<optgroup label="⚽ Spor Kanalları">';
-            const sporChannels = ['A Spor', 'TRT Spor Yıldız', 'HT Spor', 'Sports TV'];
-            for (const name of sporChannels) {
-                if (TV_CHANNELS[name]) {
-                    options += `<option value="${name}">${name}</option>`;
-                }
-            }
-            options += '</optgroup>';
-            
-            // Eğlence Kanalları
-            options += '<optgroup label="🎬 Eğlence Kanalları">';
-            const eglenceChannels = ['TEVE2', 'DMAX', 'TLC', 'TRT 2', 'A2' ];
-            for (const name of eglenceChannels) {
-                if (TV_CHANNELS[name]) {
-                    options += `<option value="${name}">${name}</option>`;
-                }
-            }
-            options += '</optgroup>';
-            
-            return options;
-        }
-
-        // Change channel
         function changeChannel(boxIndex, channelName) {
             const box = tvBoxes[boxIndex];
             const channel = TV_CHANNELS[channelName];
 
-            console.log(`📺 Kanal değiştiriliyor: ${channelName}`);
-            console.log(`URL: ${channel?.url}`);
+            // Clean up previous
+            if (box.hls) { try { box.hls.destroy(); } catch(e){} box.hls = null; }
+            if (box.video) { try { box.video.pause(); box.video.src = ''; } catch(e){} }
 
-            // Clear previous channel
-            if (box.hls) {
-                box.hls.destroy();
-                box.hls = null;
-            }
-            if (box.video) {
-                box.video.pause();
-                box.video.src = '';
-            }
+            // Reset screen but preserve overlay buttons
+            box.screen.innerHTML = `
+                <div class="overlay-controls">
+                    <button class="overlay-btn" id="mute-${boxIndex}" onclick="toggleSolo(${boxIndex})">🔇</button>
+                    <button class="overlay-btn" onclick="fullscreen(${boxIndex})">⛶</button>
+                </div>
+            `;
+            box.muteBtn = box.screen.querySelector(`#mute-${boxIndex}`);
 
             if (!channel || !channelName) {
-                box.screen.innerHTML = '<div class="placeholder">📺 Kanal seçiniz</div>';
+                const ph = document.createElement('div');
+                ph.className = 'placeholder';
+                ph.textContent = '📺 Select a channel';
+                box.screen.appendChild(ph);
                 box.currentChannel = null;
                 box.badge.style.display = 'none';
+                if (soloIndex === boxIndex) soloIndex = -1;
                 updateActiveChannels();
+                updateMuteButtons();
                 return;
             }
 
-            // Show loading
-            box.screen.innerHTML = `
-                <div class="loading">
-                    <div class="spinner"></div>
-                    <div>Yükleniyor...</div>
-                    <small style="color: #999; margin-top: 5px;">${channelName}</small>
-                </div>
-            `;
+            // Loading indicator
+            const loading = document.createElement('div');
+            loading.className = 'loading';
+            loading.innerHTML = `<div class="spinner"></div><div>Loading…</div><small style="color:#999;">${channelName}</small>`;
+            box.screen.appendChild(loading);
 
-            // Update badge
             box.badge.textContent = channel.source;
             box.badge.className = 'channel-badge ' + (channel.source === 'TRT' ? '' : 'iptv');
-            box.badge.style.display = 'block';
+            box.badge.style.display = 'inline-block';
 
-            // Create video element
-            setTimeout(() => {
-                const video = document.createElement('video');
-                video.controls = false; // Kontrolleri kapat - daha fazla alan
-                video.autoplay = true;
-                video.muted = box.muted;
-                video.volume = 0.5;
-                video.preload = 'auto';
-                video.crossOrigin = 'anonymous';
-                video.setAttribute('playsinline', '');
-                video.setAttribute('webkit-playsinline', '');
-                
-                // Video üzerine tıklayınca play/pause
-                video.addEventListener('click', function() {
-                    if (video.paused) {
-                        video.play();
+            // Build video element
+            const video = document.createElement('video');
+            video.controls = false;
+            video.autoplay = true;
+            video.muted = true;          // ALWAYS start muted (iOS autoplay req + multi-stream)
+            video.playsInline = true;
+            video.preload = 'auto';
+            video.setAttribute('playsinline', '');
+            video.setAttribute('webkit-playsinline', '');
+            video.style.display = 'none'; // Hide until ready, so loading stays visible
+
+            // Tap to toggle solo audio (mobile-friendly: tapping the screen unmutes it)
+            video.addEventListener('click', () => toggleSolo(boxIndex));
+
+            const showError = (msg) => {
+                box.screen.innerHTML = `
+                    <div class="overlay-controls">
+                        <button class="overlay-btn" id="mute-${boxIndex}" onclick="toggleSolo(${boxIndex})">🔇</button>
+                        <button class="overlay-btn" onclick="fullscreen(${boxIndex})">⛶</button>
+                    </div>
+                    <div class="error-message">
+                        ❌ ${msg}<br>
+                        <small>The channel may be off air or geo-restricted</small><br>
+                        <button onclick="changeChannel(${boxIndex}, '${channelName}')">🔄 Retry</button>
+                    </div>
+                `;
+                box.muteBtn = box.screen.querySelector(`#mute-${boxIndex}`);
+            };
+
+            const onReady = () => {
+                if (loading.parentNode) loading.parentNode.removeChild(loading);
+                video.style.display = 'block';
+                video.play().catch(() => { /* user gesture needed; first tap will start it */ });
+            };
+
+            // HLS.js for browsers that support MSE
+            if (window.Hls && Hls.isSupported()) {
+                const hls = new Hls({
+                    enableWorker: true,
+                    lowLatencyMode: false,
+                    backBufferLength: 30,
+                    maxBufferLength: 20,
+                    manifestLoadingTimeOut: 12000,
+                    manifestLoadingMaxRetry: 3,
+                    levelLoadingTimeOut: 12000,
+                    fragLoadingTimeOut: 20000,
+                    fragLoadingMaxRetry: 4
+                });
+                hls.loadSource(channel.url);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, onReady);
+                hls.on(Hls.Events.ERROR, (e, data) => {
+                    if (!data.fatal) return;
+                    if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                        try { hls.startLoad(); } catch(_){}
+                    } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                        try { hls.recoverMediaError(); } catch(_){}
                     } else {
-                        video.pause();
+                        try { hls.destroy(); } catch(_){}
+                        showError('Failed to load stream');
                     }
                 });
+                box.hls = hls;
+            }
+            // Native HLS (Safari, iOS)
+            else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = channel.url;
+                video.addEventListener('loadedmetadata', onReady);
+                video.addEventListener('error', () => showError('Video could not be loaded'));
+            } else {
+                showError('Your browser does not support HLS playback');
+                return;
+            }
 
-                // Handle M3U8 with HLS.js
-                if (Hls.isSupported()) {
-                    const hls = new Hls({
-                        enableWorker: true,
-                        lowLatencyMode: false,
-                        backBufferLength: 90,
-                        maxBufferLength: 30,
-                        maxMaxBufferLength: 60,
-                        maxBufferSize: 60 * 1000 * 1000,
-                        maxBufferHole: 0.5,
-                        highBufferWatchdogPeriod: 2,
-                        nudgeOffset: 0.1,
-                        nudgeMaxRetry: 3,
-                        maxFragLookUpTolerance: 0.25,
-                        liveSyncDurationCount: 3,
-                        liveMaxLatencyDurationCount: 10,
-                        liveDurationInfinity: false,
-                        enableSoftwareAES: true,
-                        manifestLoadingTimeOut: 10000,
-                        manifestLoadingMaxRetry: 3,
-                        manifestLoadingRetryDelay: 1000,
-                        levelLoadingTimeOut: 10000,
-                        levelLoadingMaxRetry: 4,
-                        fragLoadingTimeOut: 20000,
-                        fragLoadingMaxRetry: 6,
-                        startFragPrefetch: true,
-                        testBandwidth: true
-                    });
-                    
-                    hls.loadSource(channel.url);
-                    hls.attachMedia(video);
-                    
-                    hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                        video.play().catch(e => {
-                            console.log('Autoplay prevented:', e);
-                            // Kullanıcı tıklaması bekle
-                        });
-                    });
+            box.screen.appendChild(video);
+            box.video = video;
+            box.currentChannel = channelName;
 
-                    hls.on(Hls.Events.ERROR, function(event, data) {
-                        console.error('HLS Error:', data);
-                        if (data.fatal) {
-                            switch (data.type) {
-                                case Hls.ErrorTypes.NETWORK_ERROR:
-                                    console.log('Network error, trying to recover...');
-                                    hls.startLoad();
-                                    break;
-                                case Hls.ErrorTypes.MEDIA_ERROR:
-                                    console.log('Media error, trying to recover...');
-                                    hls.recoverMediaError();
-                                    break;
-                                default:
-                                    box.screen.innerHTML = `
-                                        <div class="error-message">
-                                            ❌ Yükleme hatası<br>
-                                            <small>Kanal şu anda yayında olmayabilir</small><br>
-                                            <button class="tv-btn" onclick="changeChannel(${boxIndex}, '${channelName}')" style="margin-top:10px;">🔄 Tekrar Dene</button>
-                                        </div>
-                                    `;
-                                    hls.destroy();
-                                    break;
-                            }
-                        }
-                    });
+            // Auto-solo this one if no other has audio (best UX when user adds first stream)
+            if (soloIndex === -1) soloIndex = boxIndex;
 
-                    box.hls = hls;
-                } 
-                // Fallback for Safari (native HLS support)
-                else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                    video.src = channel.url;
-                    video.addEventListener('loadedmetadata', function() {
-                        video.play().catch(e => console.log('Autoplay prevented'));
-                    });
-                    video.addEventListener('error', function(e) {
-                        box.screen.innerHTML = `
-                            <div class="error-message">
-                                ❌ Video yüklenemedi<br>
-                                <small>Kanal geçici olarak yayında olmayabilir</small>
-                            </div>
-                        `;
-                    });
-                } else {
-                    box.screen.innerHTML = `
-                        <div class="error-message">
-                            ❌ Tarayıcınız M3U8 formatını desteklemiyor<br>
-                            <small>Lütfen Chrome, Firefox veya Safari kullanın</small>
-                        </div>
-                    `;
+            updateActiveChannels();
+            updateMuteButtons();
+        }
+
+        // Solo audio toggle: only one stream has audio at a time (iOS-friendly).
+        function toggleSolo(boxIndex) {
+            if (soloIndex === boxIndex) {
+                soloIndex = -1; // mute everyone
+            } else {
+                soloIndex = boxIndex;
+            }
+            updateMuteButtons();
+        }
+
+        function updateMuteButtons() {
+            tvBoxes.forEach((box, i) => {
+                const isSolo = (soloIndex === i);
+                if (box.video) {
+                    box.video.muted = !isSolo;
+                    if (isSolo) {
+                        // Re-trigger play in case iOS paused it on unmute
+                        box.video.play().catch(() => {});
+                    }
                 }
-
-                box.screen.innerHTML = '';
-                box.screen.appendChild(video);
-                box.video = video;
-                box.currentChannel = channelName;
-                updateActiveChannels();
-            }, 500);
+                if (box.muteBtn) {
+                    box.muteBtn.textContent = isSolo ? '🔊' : '🔇';
+                    box.muteBtn.style.background = isSolo ? 'rgba(76,175,80,0.85)' : 'rgba(0,0,0,0.6)';
+                }
+            });
         }
 
-        // Set volume
-        function setVolume(boxIndex, volume) {
-            const box = tvBoxes[boxIndex];
-            if (box.video) {
-                box.video.volume = volume / 100;
-            }
-        }
-
-        // Toggle mute
-        function toggleMute(boxIndex) {
-            const box = tvBoxes[boxIndex];
-            box.muted = !box.muted;
-            
-            if (box.video) {
-                box.video.muted = box.muted;
-            }
-        }
-
-        // Fullscreen
         function fullscreen(boxIndex) {
             const box = tvBoxes[boxIndex];
-            if (box.video) {
-                if (box.video.requestFullscreen) {
-                    box.video.requestFullscreen();
-                } else if (box.video.webkitRequestFullscreen) {
-                    box.video.webkitRequestFullscreen();
-                }
+            if (!box.video) return;
+            const v = box.video;
+            // iOS Safari uses webkitEnterFullscreen on the <video> directly
+            if (v.webkitEnterFullscreen) {
+                v.webkitEnterFullscreen();
+            } else if (v.requestFullscreen) {
+                v.requestFullscreen().catch(() => {});
+            } else if (v.webkitRequestFullscreen) {
+                v.webkitRequestFullscreen();
+            } else if (box.element.requestFullscreen) {
+                box.element.requestFullscreen().catch(() => {});
             }
         }
 
-        // Mute all
         function muteAll() {
-            tvBoxes.forEach((box, index) => {
-                if (box.video && !box.muted) {
-                    toggleMute(index);
-                }
-            });
+            soloIndex = -1;
+            updateMuteButtons();
         }
 
-        // Refresh all
         function refreshAll() {
-            tvBoxes.forEach((box, index) => {
+            tvBoxes.forEach((box, i) => {
                 if (box.currentChannel) {
-                    changeChannel(index, box.select.value);
+                    changeChannel(i, box.currentChannel);
                 }
             });
         }
 
-        // Set grid layout
-        function setGrid(layout) {
+        function setGrid(layout, btn) {
             currentGrid = layout;
             const container = document.getElementById('gridContainer');
-            
-            // Remove all grid classes
-            container.className = 'grid-container';
-            
-            // Update button states
-            document.querySelectorAll('.btn-secondary').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            event.target.classList.add('active');
+            container.className = 'grid-container grid-' + layout;
+            document.querySelectorAll('.btn-layout').forEach(b => b.classList.remove('active'));
+            if (btn) btn.classList.add('active');
 
-            // Apply new grid
-            if (layout === '2x2') {
-                container.classList.add('grid-2x2');
-                createTVBoxes(4);
-            } else if (layout === '3x3') {
-                container.classList.add('grid-3x3');
-                createTVBoxes(9);
-            } else if (layout === '1x2') {
-                container.classList.add('grid-1x2');
-                createTVBoxes(2);
+            // Preserve currently-watched channels across layout changes
+            const previous = tvBoxes.map(b => b.currentChannel);
+            const counts = { '1x1': 1, '1x2': 2, '2x2': 4 };
+            const newCount = counts[layout] || 2;
+            createTVBoxes(newCount);
+            // Restore channels into the new boxes (as many as fit)
+            for (let i = 0; i < Math.min(newCount, previous.length); i++) {
+                if (previous[i]) {
+                    tvBoxes[i].select.value = previous[i];
+                    changeChannel(i, previous[i]);
+                }
             }
         }
 
-        // Update active channels counter
         function updateActiveChannels() {
-            const activeCount = tvBoxes.filter(box => box.currentChannel !== null).length;
-            document.getElementById('activeChannels').textContent = `${activeCount} kanal aktif`;
+            const n = tvBoxes.filter(b => b.currentChannel).length;
+            document.getElementById('activeChannels').textContent = `${n} active`;
         }
 
-        // Initialize on load
+        // Kick off
         init();
     </script>
 </body>
