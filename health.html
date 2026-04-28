@@ -1,118 +1,197 @@
-<h2 class="sr-only"> Health Tracker - Log blood pressure and vital signs</h2>
+<h2 class="sr-only">Health Tracker — log blood pressure and vital signs</h2>
 
 <style>
-  .tk-wrap { font-family: var(--font-sans); padding: 1rem 0; color: var(--color-text-primary); }
-  .tk-card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-bottom: 1rem; }
-  .tk-h { font-size: 16px; font-weight: 500; margin: 0 0 12px; }
-  .tk-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  .tk-row > * { flex: 0 0 auto; }
-  .tk-label { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 4px; display: block; }
-  .tk-bp { display: inline-flex; align-items: center; gap: 6px; }
-  .tk-bp input { width: 70px; text-align: center; }
-  .tk-sep { font-size: 18px; color: var(--color-text-secondary); }
-  .tk-unit { font-size: 13px; color: var(--color-text-secondary); }
-  .tk-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-  .tk-btn-primary { background: var(--color-text-primary); color: var(--color-background-primary); border: 0.5px solid var(--color-text-primary); }
-  .tk-btn-primary:hover { opacity: 0.85; }
-  .tk-list { list-style: none; padding: 0; margin: 0; }
-  .tk-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 0.5px solid var(--color-border-tertiary); }
-  .tk-item:last-child { border-bottom: none; }
-  .tk-time { font-size: 13px; color: var(--color-text-secondary); min-width: 130px; font-variant-numeric: tabular-nums; }
-  .tk-val { font-size: 15px; font-weight: 500; min-width: 110px; font-variant-numeric: tabular-nums; }
-  .tk-desc { font-size: 13px; color: var(--color-text-secondary); flex: 1; min-width: 0; overflow-wrap: anywhere; }
-  .tk-icon-btn { background: transparent; border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 6px; cursor: pointer; color: var(--color-text-secondary); display: inline-flex; align-items: center; justify-content: center; }
-  .tk-icon-btn:hover { background: var(--color-background-secondary); color: var(--color-text-primary); }
-  .tk-icon-btn svg { width: 14px; height: 14px; }
-  .tk-empty { font-size: 13px; color: var(--color-text-tertiary); padding: 12px 0; text-align: center; }
-  .tk-notes { width: 100%; box-sizing: border-box; resize: none; overflow: hidden; min-height: 76px; font-family: var(--font-sans); }
-  .tk-toast { position: absolute; bottom: 8px; right: 8px; background: var(--color-background-success); color: var(--color-text-success); font-size: 12px; padding: 6px 10px; border-radius: var(--border-radius-md); opacity: 0; transition: opacity 0.2s; pointer-events: none; }
-  .tk-toast.show { opacity: 1; }
-  .tk-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-top: 8px; }
-  .tk-stat { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 10px 12px; }
-  .tk-stat-label { font-size: 12px; color: var(--color-text-secondary); }
-  .tk-stat-val { font-size: 16px; font-weight: 500; font-variant-numeric: tabular-nums; }
-  .tk-hint { font-size: 12px; color: var(--color-text-tertiary); margin-top: 6px; }
+  .ht { font-family: var(--font-sans); padding: 1rem 0; color: #E6ECF5; }
+  .ht * { box-sizing: border-box; }
+  .ht-shell { background: #0F1B2D; border-radius: 16px; padding: 18px 16px 20px; border: 1px solid #1B2A44; }
+  .ht-head { padding: 4px 4px 14px; border-bottom: 1px solid #1B2A44; margin-bottom: 16px; }
+  .ht-title { font-size: 18px; font-weight: 500; margin: 0 0 4px; color: #E6ECF5; letter-spacing: -0.01em; }
+  .ht-sub { font-size: 13px; color: #8FA3C4; margin: 0; }
+  .ht-brand { font-size: 11px; font-weight: 500; color: #6FA8FF; letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 8px; }
+
+  .ht-card { background: #15243B; border: 1px solid #1F314F; border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .ht-h { font-size: 15px; font-weight: 500; margin: 0 0 14px; color: #E6ECF5; }
+
+  .ht-field { margin-bottom: 12px; }
+  .ht-label { display: block; font-size: 13px; color: #8FA3C4; margin-bottom: 6px; font-weight: 400; }
+
+  .ht-input, .ht-textarea {
+    width: 100%; min-height: 46px; padding: 10px 12px; font-size: 16px; font-family: var(--font-sans);
+    color: #E6ECF5; background: #0F1B2D; border: 1px solid #2A3D5F; border-radius: 10px;
+    outline: none; transition: border-color 0.15s, box-shadow 0.15s; -webkit-appearance: none; appearance: none;
+  }
+  .ht-input:focus, .ht-textarea:focus { border-color: #4D8BFF; box-shadow: 0 0 0 3px rgba(77,139,255,0.18); }
+  .ht-input::placeholder, .ht-textarea::placeholder { color: #5C7090; }
+  .ht-input::-webkit-date-and-time-value { text-align: left; }
   input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   input[type="number"] { -moz-appearance: textfield; }
+
+  .ht-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .ht-bp { display: flex; align-items: center; gap: 10px; }
+  .ht-bp .ht-input { text-align: center; font-size: 18px; font-weight: 500; padding: 10px 8px; }
+  .ht-sep { font-size: 22px; color: #5C7090; font-weight: 300; }
+
+  .ht-textarea { min-height: 92px; resize: none; line-height: 1.5; overflow: hidden; }
+
+  .ht-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; min-height: 50px; padding: 12px 18px; font-size: 16px; font-weight: 500;
+    color: #FFFFFF; background: #2563EB; border: 1px solid #2563EB; border-radius: 12px;
+    cursor: pointer; font-family: var(--font-sans); letter-spacing: 0.01em;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 2px 6px rgba(37,99,235,0.35);
+    transition: background 0.15s, transform 0.05s, box-shadow 0.15s;
+  }
+  .ht-btn:hover { background: #1E55D6; box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 4px 10px rgba(37,99,235,0.45); }
+  .ht-btn:active { transform: translateY(1px); }
+  .ht-btn-secondary {
+    background: transparent; color: #B8C7E2; border: 1px solid #2A3D5F; box-shadow: none; min-height: 44px; font-size: 14px;
+  }
+  .ht-btn-secondary:hover { background: #1A2A45; color: #E6ECF5; box-shadow: none; }
+  .ht-btn-danger { background: transparent; color: #F08D8D; border-color: #4A2A35; box-shadow: none; }
+  .ht-btn-danger:hover { background: #2A1A24; color: #FFB3B3; }
+
+  .ht-list-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .ht-count { font-size: 12px; color: #8FA3C4; background: #0F1B2D; padding: 3px 8px; border-radius: 999px; border: 1px solid #2A3D5F; }
+
+  .ht-list { list-style: none; padding: 0; margin: 0; }
+  .ht-item { padding: 12px 0; border-bottom: 1px solid #1F314F; }
+  .ht-item:last-child { border-bottom: none; }
+  .ht-item-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .ht-item-main { flex: 1; min-width: 0; }
+  .ht-item-val { font-size: 17px; font-weight: 500; color: #E6ECF5; font-variant-numeric: tabular-nums; }
+  .ht-item-pulse { font-size: 13px; color: #8FA3C4; margin-left: 8px; font-weight: 400; }
+  .ht-item-time { font-size: 12px; color: #8FA3C4; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .ht-item-desc { font-size: 13px; color: #B8C7E2; margin-top: 6px; line-height: 1.45; overflow-wrap: anywhere; }
+  .ht-item-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .ht-icon-btn {
+    width: 36px; height: 36px; border-radius: 9px; background: transparent; border: 1px solid #2A3D5F;
+    color: #8FA3C4; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .ht-icon-btn:hover { background: #1A2A45; color: #E6ECF5; border-color: #3D5478; }
+  .ht-icon-btn svg { width: 16px; height: 16px; }
+  .ht-icon-btn.danger:hover { color: #F08D8D; border-color: #4A2A35; background: #2A1A24; }
+
+  .ht-empty { font-size: 13px; color: #6F84A6; text-align: center; padding: 20px 0; }
+
+  .ht-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+  .ht-stat { background: #0F1B2D; border: 1px solid #1F314F; border-radius: 10px; padding: 10px 12px; }
+  .ht-stat-label { font-size: 11px; color: #8FA3C4; text-transform: uppercase; letter-spacing: 0.05em; }
+  .ht-stat-val { font-size: 17px; font-weight: 500; color: #E6ECF5; font-variant-numeric: tabular-nums; margin-top: 2px; }
+
+  .ht-export-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .ht-export-grid .ht-btn-secondary { min-height: 48px; }
+
+  .ht-toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(10px);
+    background: #2563EB; color: #FFFFFF; font-size: 14px; padding: 10px 18px; border-radius: 999px;
+    opacity: 0; transition: opacity 0.2s, transform 0.2s; pointer-events: none; z-index: 50;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+  }
+  .ht-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 480px) {
+    .ht-shell { padding: 14px 12px 16px; border-radius: 14px; }
+    .ht-card { padding: 14px; }
+    .ht-stats { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .ht-stat { padding: 8px 10px; }
+  }
 </style>
 
-<div class="tk-wrap" style="position: relative;">
+<div class="ht">
+  <div class="ht-shell">
 
-  <div class="tk-card">
-    <p class="tk-h">New record</p>
+    <div class="ht-head">
+      <p class="ht-brand">Bulut Projects</p>
+      <h3 class="ht-title">Health Tracker</h3>
+      <p class="ht-sub">Log blood pressure and vital signs</p>
+    </div>
 
-    <div class="tk-row" style="margin-bottom: 12px;">
-      <div>
-        <label class="tk-label" for="tk-date">Tarih</label>
-        <input type="date" id="tk-date" />
-      </div>
-      <div>
-        <label class="tk-label" for="tk-time">Saat</label>
-        <input type="time" id="tk-time" />
-      </div>
-      <div>
-        <label class="tk-label">Tansiyon (mmHg)</label>
-        <div class="tk-bp">
-          <input type="number" id="tk-sys" min="0" max="300" placeholder="120" inputmode="numeric" />
-          <span class="tk-sep">/</span>
-          <input type="number" id="tk-dia" min="0" max="999" placeholder="80" inputmode="numeric" />
+    <div class="ht-card">
+      <p class="ht-h" id="ht-form-title">New entry</p>
+
+      <div class="ht-grid2">
+        <div class="ht-field">
+          <label class="ht-label" for="ht-date">Date</label>
+          <input type="date" id="ht-date" class="ht-input" />
+        </div>
+        <div class="ht-field">
+          <label class="ht-label" for="ht-time">Time</label>
+          <input type="time" id="ht-time" class="ht-input" />
         </div>
       </div>
-      <div>
-        <label class="tk-label" for="tk-pulse">Nabız (ops.)</label>
-        <input type="number" id="tk-pulse" min="0" max="300" placeholder="—" inputmode="numeric" style="width: 80px;" />
+
+      <div class="ht-field">
+        <label class="ht-label">Blood pressure (mmHg)</label>
+        <div class="ht-bp">
+          <input type="number" id="ht-sys" class="ht-input" min="0" max="300" placeholder="120" inputmode="numeric" />
+          <span class="ht-sep">/</span>
+          <input type="number" id="ht-dia" class="ht-input" min="0" max="999" placeholder="80" inputmode="numeric" />
+        </div>
       </div>
-    </div>
 
-    <div style="margin-bottom: 8px;">
-      <label class="tk-label" for="tk-desc">Açıklama (opsiyonel)</label>
-      <input type="text" id="tk-desc" placeholder="Örn: sabah, ilaçtan önce" style="width: 100%; box-sizing: border-box;" />
-    </div>
-
-    <div class="tk-actions">
-      <button id="tk-add" class="tk-btn-primary">Ekle</button>
-      <button id="tk-now">Şimdi</button>
-      <button id="tk-cancel-edit" style="display: none;">Düzenlemeyi iptal et</button>
-    </div>
-  </div>
-
-  <div class="tk-card">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-      <p class="tk-h" style="margin: 0;">Kayıtlar (<span id="tk-count">0</span>)</p>
-      <div class="tk-row" style="gap: 6px;">
-        <button id="tk-clear" title="Tümünü sil">Tümünü sil</button>
+      <div class="ht-field">
+        <label class="ht-label" for="ht-pulse">Pulse (optional)</label>
+        <input type="number" id="ht-pulse" class="ht-input" min="0" max="300" placeholder="bpm" inputmode="numeric" />
       </div>
+
+      <div class="ht-field">
+        <label class="ht-label" for="ht-desc">Note (optional)</label>
+        <input type="text" id="ht-desc" class="ht-input" placeholder="e.g. morning, before medication" />
+      </div>
+
+      <button id="ht-add" class="ht-btn">Add entry</button>
+      <button id="ht-cancel-edit" class="ht-btn ht-btn-secondary" style="display: none; margin-top: 8px;">Cancel edit</button>
     </div>
 
-    <div class="tk-stat-grid" id="tk-stats" style="display: none;">
-      <div class="tk-stat"><div class="tk-stat-label">Ortalama büyük</div><div class="tk-stat-val" id="tk-avg-sys">—</div></div>
-      <div class="tk-stat"><div class="tk-stat-label">Ortalama küçük</div><div class="tk-stat-val" id="tk-avg-dia">—</div></div>
-      <div class="tk-stat"><div class="tk-stat-label">Ortalama nabız</div><div class="tk-stat-val" id="tk-avg-pulse">—</div></div>
-      <div class="tk-stat"><div class="tk-stat-label">Son ölçüm</div><div class="tk-stat-val" id="tk-last">—</div></div>
+    <div class="ht-card">
+      <div class="ht-list-head">
+        <p class="ht-h" style="margin: 0;">Entries <span class="ht-count" id="ht-count">0</span></p>
+        <button id="ht-clear" class="ht-btn ht-btn-secondary ht-btn-danger" style="width: auto; padding: 6px 12px; min-height: 32px; font-size: 12px;">Clear all</button>
+      </div>
+
+      <div class="ht-stats" id="ht-stats" style="display: none;">
+        <div class="ht-stat"><div class="ht-stat-label">Avg sys</div><div class="ht-stat-val" id="ht-avg-sys">—</div></div>
+        <div class="ht-stat"><div class="ht-stat-label">Avg dia</div><div class="ht-stat-val" id="ht-avg-dia">—</div></div>
+        <div class="ht-stat"><div class="ht-stat-label">Avg pulse</div><div class="ht-stat-val" id="ht-avg-pulse">—</div></div>
+      </div>
+
+      <ul class="ht-list" id="ht-list"></ul>
+      <div class="ht-empty" id="ht-empty">No entries yet. Add your first reading above.</div>
     </div>
 
-    <ul class="tk-list" id="tk-list"></ul>
-    <div class="tk-empty" id="tk-empty">Henüz kayıt yok. Yukarıdan ilk kaydını ekle.</div>
-  </div>
-
-  <div class="tk-card">
-    <p class="tk-h">Notlar</p>
-    <textarea id="tk-notes" class="tk-notes" rows="3" placeholder="Buraya genel notlarınızı yazabilirsiniz. Yazdıkça alan büyür."></textarea>
-  </div>
-
-  <div class="tk-card">
-    <p class="tk-h">Dışa / İçe aktar</p>
-    <div class="tk-actions">
-      <button id="tk-pdf">PDF indir</button>
-      <button id="tk-xlsx">Excel indir</button>
-      <button id="tk-json-save">JSON yedekle</button>
-      <button id="tk-json-load">JSON geri yükle</button>
-      <input type="file" id="tk-file" accept="application/json,.json" style="display: none;" />
+    <div class="ht-card">
+      <p class="ht-h">Notes</p>
+      <textarea id="ht-notes" class="ht-textarea" rows="3" placeholder="General notes — area expands as you type."></textarea>
     </div>
-    <p class="tk-hint">Veriler tarayıcıda yalnızca bu oturum boyunca saklanır. Kalıcı yedek için JSON dosyasını indirip saklayın.</p>
+
+    <div class="ht-card">
+      <p class="ht-h">Export &amp; backup</p>
+      <div class="ht-export-grid">
+        <button id="ht-pdf" class="ht-btn ht-btn-secondary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          PDF
+        </button>
+        <button id="ht-xlsx" class="ht-btn ht-btn-secondary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+          Excel
+        </button>
+        <button id="ht-json-save" class="ht-btn ht-btn-secondary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Save
+        </button>
+        <button id="ht-json-load" class="ht-btn ht-btn-secondary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Upload
+        </button>
+      </div>
+      <input type="file" id="ht-file" accept="application/json,.json" style="display: none;" />
+    </div>
+
   </div>
 
-  <div class="tk-toast" id="tk-toast">Tamam</div>
+  <div class="ht-toast" id="ht-toast">OK</div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -125,12 +204,13 @@
   let editingId = null;
 
   const $ = (id) => document.getElementById(id);
-  const dateEl = $('tk-date'), timeEl = $('tk-time'), sysEl = $('tk-sys'), diaEl = $('tk-dia'), pulseEl = $('tk-pulse'), descEl = $('tk-desc');
-  const addBtn = $('tk-add'), nowBtn = $('tk-now'), cancelEditBtn = $('tk-cancel-edit');
-  const listEl = $('tk-list'), emptyEl = $('tk-empty'), countEl = $('tk-count');
-  const notesEl = $('tk-notes');
-  const toastEl = $('tk-toast');
-  const statsEl = $('tk-stats');
+  const dateEl = $('ht-date'), timeEl = $('ht-time'), sysEl = $('ht-sys'), diaEl = $('ht-dia'), pulseEl = $('ht-pulse'), descEl = $('ht-desc');
+  const addBtn = $('ht-add'), cancelEditBtn = $('ht-cancel-edit');
+  const listEl = $('ht-list'), emptyEl = $('ht-empty'), countEl = $('ht-count');
+  const notesEl = $('ht-notes');
+  const toastEl = $('ht-toast');
+  const statsEl = $('ht-stats');
+  const formTitleEl = $('ht-form-title');
 
   function pad(n){ return String(n).padStart(2,'0'); }
   function setNow(){
@@ -143,14 +223,14 @@
   function fmtDateTime(dateStr, timeStr){
     if (!dateStr) return '';
     const [y,m,d] = dateStr.split('-');
-    return `${d}.${m}.${y} ${timeStr || ''}`.trim();
+    return `${d}.${m}.${y} · ${timeStr || ''}`.trim();
   }
 
   function toast(msg){
     toastEl.textContent = msg;
     toastEl.classList.add('show');
     clearTimeout(toast._t);
-    toast._t = setTimeout(() => toastEl.classList.remove('show'), 1600);
+    toast._t = setTimeout(() => toastEl.classList.remove('show'), 1700);
   }
 
   function autosize(el){
@@ -173,18 +253,16 @@
     const dia = records.map(r => r.dia).filter(v => Number.isFinite(v));
     const pulse = records.map(r => r.pulse).filter(v => Number.isFinite(v));
     const avg = (arr) => arr.length ? Math.round(arr.reduce((s,v)=>s+v,0)/arr.length) : null;
-    $('tk-avg-sys').textContent = avg(sys) ?? '—';
-    $('tk-avg-dia').textContent = avg(dia) ?? '—';
-    $('tk-avg-pulse').textContent = avg(pulse) ?? '—';
-    const last = records[0];
-    $('tk-last').textContent = last ? `${last.sys}/${last.dia}` : '—';
+    $('ht-avg-sys').textContent = avg(sys) ?? '—';
+    $('ht-avg-dia').textContent = avg(dia) ?? '—';
+    $('ht-avg-pulse').textContent = avg(pulse) ?? '—';
   }
 
   function iconEdit(){
-    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
   }
   function iconDelete(){
-    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>';
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>';
   }
 
   function render(){
@@ -194,32 +272,37 @@
     emptyEl.style.display = records.length === 0 ? 'block' : 'none';
     records.forEach(r => {
       const li = document.createElement('li');
-      li.className = 'tk-item';
-      const time = document.createElement('div');
-      time.className = 'tk-time';
+      li.className = 'ht-item';
+      const row = document.createElement('div'); row.className = 'ht-item-row';
+
+      const main = document.createElement('div'); main.className = 'ht-item-main';
+      const val = document.createElement('div'); val.className = 'ht-item-val';
+      val.textContent = `${r.sys}/${r.dia} mmHg`;
+      if (Number.isFinite(r.pulse)) {
+        const ps = document.createElement('span'); ps.className = 'ht-item-pulse';
+        ps.textContent = `· ${r.pulse} bpm`;
+        val.appendChild(ps);
+      }
+      const time = document.createElement('div'); time.className = 'ht-item-time';
       time.textContent = fmtDateTime(r.date, r.time);
-      const val = document.createElement('div');
-      val.className = 'tk-val';
-      const pulseTxt = Number.isFinite(r.pulse) ? ` · ${r.pulse} bpm` : '';
-      val.textContent = `${r.sys}/${r.dia} mmHg${pulseTxt}`;
-      const desc = document.createElement('div');
-      desc.className = 'tk-desc';
-      desc.textContent = r.desc || '';
-      const editBtn = document.createElement('button');
-      editBtn.className = 'tk-icon-btn';
-      editBtn.title = 'Düzenle';
+      main.appendChild(val); main.appendChild(time);
+      if (r.desc) {
+        const desc = document.createElement('div'); desc.className = 'ht-item-desc';
+        desc.textContent = r.desc;
+        main.appendChild(desc);
+      }
+
+      const actions = document.createElement('div'); actions.className = 'ht-item-actions';
+      const editBtn = document.createElement('button'); editBtn.className = 'ht-icon-btn'; editBtn.title = 'Edit'; editBtn.setAttribute('aria-label','Edit');
       editBtn.innerHTML = iconEdit();
       editBtn.addEventListener('click', () => startEdit(r.id));
-      const delBtn = document.createElement('button');
-      delBtn.className = 'tk-icon-btn';
-      delBtn.title = 'Sil';
+      const delBtn = document.createElement('button'); delBtn.className = 'ht-icon-btn danger'; delBtn.title = 'Delete'; delBtn.setAttribute('aria-label','Delete');
       delBtn.innerHTML = iconDelete();
       delBtn.addEventListener('click', () => removeRecord(r.id));
-      li.appendChild(time);
-      li.appendChild(val);
-      li.appendChild(desc);
-      li.appendChild(editBtn);
-      li.appendChild(delBtn);
+      actions.appendChild(editBtn); actions.appendChild(delBtn);
+
+      row.appendChild(main); row.appendChild(actions);
+      li.appendChild(row);
       listEl.appendChild(li);
     });
     renderStats();
@@ -244,7 +327,8 @@
     sysEl.value = ''; diaEl.value = ''; pulseEl.value = ''; descEl.value = '';
     setNow();
     editingId = null;
-    addBtn.textContent = 'Ekle';
+    addBtn.textContent = 'Add entry';
+    formTitleEl.textContent = 'New entry';
     cancelEditBtn.style.display = 'none';
   }
 
@@ -256,58 +340,56 @@
     sysEl.value = r.sys; diaEl.value = r.dia;
     pulseEl.value = r.pulse ?? '';
     descEl.value = r.desc || '';
-    addBtn.textContent = 'Kaydet';
+    addBtn.textContent = 'Save changes';
+    formTitleEl.textContent = 'Edit entry';
     cancelEditBtn.style.display = '';
     sysEl.focus();
+    sysEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   function removeRecord(id){
-    if (!confirm('Bu kaydı silmek istiyor musunuz?')) return;
+    if (!confirm('Delete this entry?')) return;
     records = records.filter(r => r.id !== id);
     render();
-    toast('Kayıt silindi');
+    toast('Entry deleted');
   }
 
   addBtn.addEventListener('click', () => {
     const data = readForm();
-    if (!data) { alert('Lütfen büyük ve küçük tansiyon değerlerini girin.'); return; }
+    if (!data) { alert('Please enter both systolic and diastolic values.'); return; }
     if (editingId) {
       const idx = records.findIndex(r => r.id === editingId);
       if (idx >= 0) records[idx] = { ...records[idx], ...data };
-      toast('Kayıt güncellendi');
+      toast('Entry updated');
     } else {
       records.push({ id: uid(), ...data });
-      toast('Kayıt eklendi');
+      toast('Entry added');
     }
     clearForm();
     render();
   });
 
-  nowBtn.addEventListener('click', setNow);
   cancelEditBtn.addEventListener('click', clearForm);
 
-  $('tk-clear').addEventListener('click', () => {
+  $('ht-clear').addEventListener('click', () => {
     if (records.length === 0) return;
-    if (!confirm('Tüm kayıtlar silinsin mi? Bu işlem geri alınamaz.')) return;
+    if (!confirm('Delete all entries? This cannot be undone.')) return;
     records = [];
     render();
-    toast('Tüm kayıtlar silindi');
+    toast('All entries cleared');
   });
 
-  // Notes autosize
   notesEl.addEventListener('input', () => {
     notes = notesEl.value;
     autosize(notesEl);
   });
-  // initial size
   setTimeout(() => autosize(notesEl), 0);
 
   // ---------- Export: PDF ----------
-  $('tk-pdf').addEventListener('click', async () => {
+  $('ht-pdf').addEventListener('click', async () => {
     try {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-      // Use a Unicode font for Turkish chars
       try {
         const fontUrl = 'https://cdnjs.cloudflare.com/ajax/libs/dejavu-sans/1.0.0/fonts/dejavu-sans.ttf';
         const buf = await fetch(fontUrl).then(r => { if(!r.ok) throw new Error('font'); return r.arrayBuffer(); });
@@ -318,16 +400,15 @@
         doc.addFont('DejaVuSans.ttf', 'DejaVuSans', 'normal');
         doc.setFont('DejaVuSans');
       } catch (e) {
-        // Fallback: helvetica won't render Turkish chars perfectly but PDF will still generate
         doc.setFont('helvetica');
       }
       doc.setFontSize(16);
-      doc.text('Tansiyon Kayıtları', 40, 50);
+      doc.text('Health Tracker — Blood pressure log', 40, 50);
       doc.setFontSize(10);
       const today = new Date();
-      doc.text(`Oluşturma: ${today.toLocaleString('tr-TR')}`, 40, 68);
+      doc.text(`Generated: ${today.toLocaleString()}`, 40, 68);
 
-      const head = [['Tarih', 'Saat', 'Büyük', 'Küçük', 'Nabız', 'Açıklama']];
+      const head = [['Date', 'Time', 'Sys', 'Dia', 'Pulse', 'Note']];
       const sorted = [...records].sort((a,b) => {
         const ka = (a.date||'') + 'T' + (a.time||'00:00');
         const kb = (b.date||'') + 'T' + (b.time||'00:00');
@@ -349,21 +430,21 @@
       if (notes && notes.trim()) {
         if (y > 720) { doc.addPage(); y = 50; }
         doc.setFontSize(12);
-        doc.text('Notlar', 40, y); y += 16;
+        doc.text('Notes', 40, y); y += 16;
         doc.setFontSize(10);
         const lines = doc.splitTextToSize(notes, 515);
         doc.text(lines, 40, y);
       }
-      doc.save(`tansiyon_kayitlari_${today.toISOString().slice(0,10)}.pdf`);
-      toast('PDF indirildi');
+      doc.save(`health_tracker_${today.toISOString().slice(0,10)}.pdf`);
+      toast('PDF downloaded');
     } catch (e) {
       console.error(e);
-      alert('PDF oluşturulurken bir sorun oldu.');
+      alert('Could not generate PDF.');
     }
   });
 
   // ---------- Export: XLSX ----------
-  $('tk-xlsx').addEventListener('click', () => {
+  $('ht-xlsx').addEventListener('click', () => {
     try {
       const sorted = [...records].sort((a,b) => {
         const ka = (a.date||'') + 'T' + (a.time||'00:00');
@@ -374,52 +455,47 @@
         const [y,m,d] = (r.date||'').split('-');
         const dStr = (y && m && d) ? `${d}.${m}.${y}` : '';
         return {
-          'Tarih': dStr,
-          'Saat': r.time || '',
-          'Büyük (mmHg)': r.sys,
-          'Küçük (mmHg)': r.dia,
-          'Nabız': Number.isFinite(r.pulse) ? r.pulse : '',
-          'Açıklama': r.desc || ''
+          'Date': dStr,
+          'Time': r.time || '',
+          'Systolic (mmHg)': r.sys,
+          'Diastolic (mmHg)': r.dia,
+          'Pulse (bpm)': Number.isFinite(r.pulse) ? r.pulse : '',
+          'Note': r.desc || ''
         };
       });
       const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{ 'Tarih':'', 'Saat':'', 'Büyük (mmHg)':'', 'Küçük (mmHg)':'', 'Nabız':'', 'Açıklama':'' }]);
-      ws['!cols'] = [{wch:12},{wch:8},{wch:14},{wch:14},{wch:8},{wch:40}];
-      XLSX.utils.book_append_sheet(wb, ws, 'Kayıtlar');
+      const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{ 'Date':'', 'Time':'', 'Systolic (mmHg)':'', 'Diastolic (mmHg)':'', 'Pulse (bpm)':'', 'Note':'' }]);
+      ws['!cols'] = [{wch:12},{wch:8},{wch:16},{wch:16},{wch:10},{wch:40}];
+      XLSX.utils.book_append_sheet(wb, ws, 'Entries');
       if (notes && notes.trim()) {
-        const wsN = XLSX.utils.aoa_to_sheet([['Notlar'], ...notes.split('\n').map(l => [l])]);
+        const wsN = XLSX.utils.aoa_to_sheet([['Notes'], ...notes.split('\n').map(l => [l])]);
         wsN['!cols'] = [{wch:80}];
-        XLSX.utils.book_append_sheet(wb, wsN, 'Notlar');
+        XLSX.utils.book_append_sheet(wb, wsN, 'Notes');
       }
       const today = new Date().toISOString().slice(0,10);
-      XLSX.writeFile(wb, `tansiyon_kayitlari_${today}.xlsx`);
-      toast('Excel indirildi');
+      XLSX.writeFile(wb, `health_tracker_${today}.xlsx`);
+      toast('Excel downloaded');
     } catch (e) {
       console.error(e);
-      alert('Excel oluşturulurken bir sorun oldu.');
+      alert('Could not generate Excel file.');
     }
   });
 
-  // ---------- JSON backup / restore ----------
-  $('tk-json-save').addEventListener('click', () => {
-    const payload = {
-      version: 1,
-      exportedAt: new Date().toISOString(),
-      records,
-      notes
-    };
+  // ---------- JSON save / upload ----------
+  $('ht-json-save').addEventListener('click', () => {
+    const payload = { version: 1, exportedAt: new Date().toISOString(), records, notes };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     const today = new Date().toISOString().slice(0,10);
-    a.href = url; a.download = `tansiyon_yedek_${today}.json`;
+    a.href = url; a.download = `health_tracker_backup_${today}.json`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast('JSON yedeklendi');
+    toast('Backup saved');
   });
 
-  $('tk-json-load').addEventListener('click', () => $('tk-file').click());
-  $('tk-file').addEventListener('change', (e) => {
+  $('ht-json-load').addEventListener('click', () => $('ht-file').click());
+  $('ht-file').addEventListener('change', (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
@@ -427,7 +503,7 @@
       try {
         const data = JSON.parse(reader.result);
         if (!data || !Array.isArray(data.records)) throw new Error('format');
-        const ok = confirm(`Yedekten ${data.records.length} kayıt yüklenecek. Mevcut veriler değiştirilecek. Devam edilsin mi?`);
+        const ok = confirm(`Load ${data.records.length} entries from backup? Current data will be replaced.`);
         if (!ok) return;
         records = data.records.map(r => ({
           id: r.id || uid(),
@@ -442,9 +518,9 @@
         notesEl.value = notes;
         autosize(notesEl);
         render();
-        toast('Yedek yüklendi');
+        toast('Backup loaded');
       } catch (err) {
-        alert('Geçersiz JSON dosyası.');
+        alert('Invalid JSON file.');
       } finally {
         e.target.value = '';
       }
@@ -452,7 +528,6 @@
     reader.readAsText(file, 'utf-8');
   });
 
-  // init
   setNow();
   render();
 })();
