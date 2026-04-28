@@ -787,7 +787,7 @@
   <header class="top">
     <div>
       <h1>Bütçe Takip</h1>
-      <div class="subtitle">Banka Hesapları ve Faturalar</div>
+      <div class="subtitle">Banka Hesapları ve Faturalar - Bulut Projects</div>
     </div>
     <div class="totals">
       <div class="total-card">
@@ -1798,15 +1798,15 @@ function applyHideMode() {
       delete el.dataset.original;
     }
   });
-  document.querySelectorAll('.bank-card .total, .bank-row .acc-val, .bank-row .acc-try').forEach(el => {
-    if (hide) {
-      if (!el.dataset.original) el.dataset.original = el.textContent;
-      el.textContent = '••••';
-    } else if (el.dataset.original) {
-      el.textContent = el.dataset.original;
-      delete el.dataset.original;
-    }
-  });
+document.querySelectorAll('.bank-card .total, .bank-row .acc-val, .bank-row .acc-try').forEach(el => {
+  if (hide) {
+    if (!el.dataset.original) el.dataset.original = el.innerHTML;
+    el.innerHTML = '••••';
+  } else if (el.dataset.original) {
+    el.innerHTML = el.dataset.original;
+    delete el.dataset.original;
+  }
+});
   document.querySelectorAll('.sensitive').forEach(el => {
     if (hide) {
       if (!el.dataset.original) el.dataset.original = el.innerHTML;
