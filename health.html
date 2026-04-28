@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-  <title>Health Tracker | Tansiyon ve Nabız Takibi</title>
+  <title>Health Tracker</title>
   <style>
     /* base style reset & soft blue theme – darker than light but much more readable than original deep navy */
     * {
@@ -490,7 +490,7 @@
         if (y > 720) { doc.addPage(); y = 50; }
         doc.setFont(activeFont);
         doc.setFontSize(12);
-        doc.text('Genel notlar / General notes', 40, y); y += 16;
+        doc.text('General notes', 40, y); y += 16;
         doc.setFontSize(10);
         const lines = doc.splitTextToSize(notes, 515);
         doc.text(lines, 40, y);
