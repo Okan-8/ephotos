@@ -160,7 +160,10 @@
   }
   .entry-grid .span-2 { grid-column: span 2; }
   .entry-grid .span-3 { grid-column: span 3; }
+  .entry-grid .span-4 { grid-column: span 4; }
+  .entry-grid .span-5 { grid-column: span 5; }
   .entry-grid .span-6 { grid-column: span 6; }
+  .entry-grid .span-7 { grid-column: span 7; }
 
   .actions {
     display: flex;
@@ -489,6 +492,17 @@
   .bank-row .acc-name { color: var(--text); }
   .bank-row .acc-val { font-variant-numeric: tabular-nums; font-weight: 500; }
   .bank-row .acc-try { font-variant-numeric: tabular-nums; color: var(--text-muted); font-size: 11.5px; }
+  .bank-row .acc-pct {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--primary-dark);
+    background: var(--primary-light);
+    padding: 1px 6px;
+    border-radius: 8px;
+    margin-left: 4px;
+    font-variant-numeric: tabular-nums;
+  }
   .bank-row .count-chip {
     display: inline-block;
     font-size: 9.5px;
@@ -508,6 +522,28 @@
   }
 
   .session-info { font-size: 11px; color: var(--text-muted); }
+
+  /* Notlar textarea - otomatik büyüyen */
+  #notesArea {
+    width: 100%;
+    min-height: 80px;
+    resize: none;
+    overflow: hidden;
+    font-family: var(--font);
+    font-size: 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: #fff;
+    color: var(--text);
+    line-height: 1.5;
+    transition: border-color .12s, box-shadow .12s;
+  }
+  #notesArea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(53,103,173,.15);
+  }
 
   /* ===== Period Picker (iOS tarzı silindir) ===== */
   .period-overlay {
@@ -700,7 +736,10 @@
     }
     .entry-grid .span-2,
     .entry-grid .span-3,
-    .entry-grid .span-6 {
+    .entry-grid .span-4,
+    .entry-grid .span-5,
+    .entry-grid .span-6,
+    .entry-grid .span-7 {
       grid-column: span 1 !important;
     }
     .rate-grid {
@@ -913,7 +952,7 @@
           <label>Son Ödeme Tarihi <span class="req">*</span></label>
           <input type="date" id="bDue">
         </div>
-        <div class="field span-1">
+        <div class="field span-3">
           <label>Açıklama</label>
           <input type="text" id="bDesc" placeholder="Opsiyonel not">
         </div>
@@ -948,7 +987,7 @@
           <label>Tutar (TL) <span class="req">*</span></label>
           <input type="number" id="iAmount" step="0.01" placeholder="0.00">
         </div>
-        <div class="field span-1">
+        <div class="field span-3">
           <label>Açıklama</label>
           <input type="text" id="iDesc" placeholder="Opsiyonel not">
         </div>
@@ -1026,6 +1065,16 @@
     </div>
     <div id="incTotals" class="totals-bar"></div>
     <div id="incPagination"></div>
+  </div>
+
+  <!-- Notlar -->
+  <div class="card">
+    <div class="card-head">
+      <h2>📝 Notlar</h2>
+    </div>
+    <div class="card-body">
+      <textarea id="notesArea" placeholder="Buraya istediğin notu yazabilirsin... (yazdıkça otomatik uzar)" oninput="onNotesInput()"></textarea>
+    </div>
   </div>
 </div>
 
@@ -1111,7 +1160,8 @@ const state = {
   billPageSize: 15,
   incPage: 1,
   incPageSize: 15,
-  hidden: false
+  hidden: false,
+  notes: ''
 };
 
 const ACC_COLS = [
@@ -1708,6 +1758,26 @@ function setIncPageSize(s) {
   state.incPageSize = s;
   state.incPage = 1;
   renderIncomeTable();
+}
+
+/* ===================== Notes ===================== */
+function autoResizeNotes() {
+  const ta = document.getElementById('notesArea');
+  if (!ta) return;
+  ta.style.height = 'auto';
+  ta.style.height = Math.max(80, ta.scrollHeight) + 'px';
+}
+function onNotesInput() {
+  state.notes = document.getElementById('notesArea').value;
+  autoResizeNotes();
+}
+function setNotesValue(value) {
+  state.notes = value || '';
+  const ta = document.getElementById('notesArea');
+  if (ta) {
+    ta.value = state.notes;
+    autoResizeNotes();
+  }
 }
 
 /* ===================== Hide mode ===================== */
@@ -2538,6 +2608,11 @@ const BANK_ORDER = ['İş Bankası','Yapı Kredi','Garanti Bankası'];
 function renderBankSummary() {
   const container = document.getElementById('bankSummary');
   const summary = computeBankSnapshot();
+  // Toplam mevduat (tüm bankaların TRY karşılığı toplamı) - yüzde hesaplaması için
+  let grandTotalTry = 0;
+  for (const bank in summary) {
+    for (const t in summary[bank]) grandTotalTry += summary[bank][t].tryVal;
+  }
   container.innerHTML = BANK_ORDER.map(bank => {
     const types = summary[bank];
     if (!types) {
@@ -2549,18 +2624,33 @@ function renderBankSummary() {
         <div class="bank-card-body"><div class="bank-empty">Kayıt yok</div></div>
       </div>`;
     }
-    const typeKeys = Object.keys(types).sort((a,b) => TYPE_ORDER.indexOf(a) - TYPE_ORDER.indexOf(b));
+    // Bakiyesi sıfır (veya yok denecek kadar küçük) olan hesap türlerini gizle
+    const typeKeys = Object.keys(types)
+      .filter(t => Math.abs(types[t].amount) > 0.0001)
+      .sort((a,b) => TYPE_ORDER.indexOf(a) - TYPE_ORDER.indexOf(b));
     const bankTotalTry = typeKeys.reduce((s,t) => s + types[t].tryVal, 0);
+    if (typeKeys.length === 0) {
+      // Bu bankada aktif (bakiyesi olan) hesap kalmamış
+      return `<div class="bank-card">
+        <div class="bank-card-head">
+          <div class="name">${escapeHtml(bank)}</div>
+          <div class="total">0,00 ₺</div>
+        </div>
+        <div class="bank-card-body"><div class="bank-empty">Aktif hesap yok</div></div>
+      </div>`;
+    }
     const rows = typeKeys.map(t => {
       const d = types[t];
       const unit = isMetalType(t) ? ' g' :
                    t === 'Dolar' || t === 'Vadeli Dolar' ? ' $' :
                    t === 'Euro' ? ' €' : ' ₺';
       const countChip = d.count > 1 ? `<span class="count-chip">${d.count} hesap</span>` : '';
+      const pct = grandTotalTry > 0 ? (d.tryVal / grandTotalTry) * 100 : 0;
+      const pctStr = pct >= 0.01 ? `<span class="acc-pct">%${fmt(pct, 1)}</span>` : '';
       return `<div class="bank-row">
         <div class="acc-name">${escapeHtml(t)}${countChip}</div>
         <div class="acc-val">${fmt(d.amount, 2)}${unit}</div>
-        <div class="acc-try">${fmtTry(d.tryVal)}</div>
+        <div class="acc-try">${fmtTry(d.tryVal)} ${pctStr}</div>
       </div>`;
     }).join('');
     return `<div class="bank-card">
@@ -2709,12 +2799,13 @@ function pwdSkipEncryption() {
 /* ===================== Save / Load ===================== */
 async function saveSessionJSON() {
   const payload = {
-    version: 3,
+    version: 4,
     savedAt: new Date().toISOString(),
     rates: state.rates,
     accounts: state.accounts,
     bills: state.bills,
-    incomes: state.incomes
+    incomes: state.incomes,
+    notes: state.notes
   };
   // Şifre modalı aç
   const result = await openPasswordModal('save');
@@ -2810,13 +2901,14 @@ function applyLoadedPayload(data, fileName, wasEncrypted) {
   setRateInputs();
   cancelEdit();
   renderAll();
+  setNotesValue(data.notes || '');
   const prefix = wasEncrypted ? '🔓 ' : '';
   document.getElementById('sessionInfo').textContent = `${prefix}Yüklendi: ${fileName}`;
   toast(`${prefix}"${fileName}" yüklendi (${state.accounts.length} hesap, ${state.bills.length} fatura, ${state.incomes.length} gelir)`,'success');
 }
 
 function newSession() {
-  if ((state.accounts.length > 0 || state.bills.length > 0 || state.incomes.length > 0) && !confirm('Tüm kayıtlar temizlenecek. Emin misiniz?')) return;
+  if ((state.accounts.length > 0 || state.bills.length > 0 || state.incomes.length > 0 || state.notes) && !confirm('Tüm kayıtlar temizlenecek. Emin misiniz?')) return;
   state.accounts = [];
   state.bills = [];
   state.incomes = [];
@@ -2828,6 +2920,7 @@ function newSession() {
   state.incPage = 1;
   cancelEdit();
   renderAll();
+  setNotesValue('');
   document.getElementById('sessionInfo').textContent = 'Yeni oturum';
   toast('Yeni oturum başlatıldı','success');
 }
@@ -3281,6 +3374,7 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('aDate').value = today;
   document.getElementById('iDate').value = today;
   renderAll();
+  autoResizeNotes();
 });
 </script>
 </body>
