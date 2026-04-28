@@ -460,12 +460,12 @@
       
       doc.setFont(activeFont);
       doc.setFontSize(16);
-      doc.text('Health Tracker — Kan Basıncı / Blood Pressure', 40, 50);
+      doc.text('Health Tracker — Blood Pressure', 40, 50);
       doc.setFontSize(10);
       const today = new Date();
       doc.text(`Oluşturulma / Generated: ${today.toLocaleString('tr-TR')}`, 40, 68);
 
-      const head = [['Tarih / Date', 'Saat / Time', 'Sys', 'Dia', 'Nabız / Pulse', 'Not / Note']];
+      const head = [['Date', 'Time', 'Sys', 'Dia', 'Pulse', 'Note']];
       const sorted = [...records].sort((a,b) => {
         const ka = (a.date||'') + 'T' + (a.time||'00:00');
         const kb = (b.date||'') + 'T' + (b.time||'00:00');
