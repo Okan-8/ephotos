@@ -1,104 +1,126 @@
-<h2 class="sr-only">Health Tracker — log blood pressure and vital signs</h2>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Health Tracker | Blood pressure & vital signs</title>
+  <style>
+    /* base style reset & soft blue theme – darker than light but much more readable than original deep navy */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      background: #1E2F47;  /* medium-dark slate blue background – comfortable on eyes, not too dark, readable */
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      padding: 16px;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .ht { font-family: var(--font-sans, system-ui); padding: 1rem 0; color: #EFF3FA; }
+    .ht * { box-sizing: border-box; }
+    .ht-shell { background: #2C3F5C; border-radius: 24px; padding: 18px 16px 20px; border: 1px solid #4C6D95; box-shadow: 0 12px 24px rgba(0,0,0,0.15); }
+    .ht-head { padding: 4px 4px 14px; border-bottom: 1px solid #4C6D95; margin-bottom: 16px; }
+    .ht-title { font-size: 18px; font-weight: 600; margin: 0 0 4px; color: #FFFFFF; letter-spacing: -0.01em; }
+    .ht-sub { font-size: 13px; color: #CFDEF5; margin: 0; }
+    .ht-brand { font-size: 11px; font-weight: 500; color: #B4D0FF; letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 8px; }
 
-<style>
-  .ht { font-family: var(--font-sans); padding: 1rem 0; color: #E6ECF5; }
-  .ht * { box-sizing: border-box; }
-  .ht-shell { background: #0F1B2D; border-radius: 16px; padding: 18px 16px 20px; border: 1px solid #1B2A44; }
-  .ht-head { padding: 4px 4px 14px; border-bottom: 1px solid #1B2A44; margin-bottom: 16px; }
-  .ht-title { font-size: 18px; font-weight: 500; margin: 0 0 4px; color: #E6ECF5; letter-spacing: -0.01em; }
-  .ht-sub { font-size: 13px; color: #8FA3C4; margin: 0; }
-  .ht-brand { font-size: 11px; font-weight: 500; color: #6FA8FF; letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 8px; }
+    /* cards – medium blue with nice border */
+    .ht-card { background: #1F344F; border: 1px solid #4C6D8F; border-radius: 20px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+    .ht-h { font-size: 15px; font-weight: 550; margin: 0 0 14px; color: #F0F4FC; letter-spacing: -0.2px; }
 
-  .ht-card { background: #15243B; border: 1px solid #1F314F; border-radius: 14px; padding: 16px; margin-bottom: 14px; }
-  .ht-h { font-size: 15px; font-weight: 500; margin: 0 0 14px; color: #E6ECF5; }
+    .ht-field { margin-bottom: 12px; }
+    .ht-label { display: block; font-size: 13px; color: #BFD6FE; margin-bottom: 6px; font-weight: 450; }
 
-  .ht-field { margin-bottom: 12px; }
-  .ht-label { display: block; font-size: 13px; color: #8FA3C4; margin-bottom: 6px; font-weight: 400; }
+    .ht-input, .ht-textarea {
+      width: 100%; min-height: 46px; padding: 10px 12px; font-size: 16px; font-family: var(--font-sans, system-ui);
+      color: #FFFFFF; background: #0D1F33; border: 1px solid #5E7FA3; border-radius: 14px;
+      outline: none; transition: border-color 0.15s, box-shadow 0.15s; -webkit-appearance: none; appearance: none;
+    }
+    .ht-input:focus, .ht-textarea:focus { border-color: #8AB5FF; box-shadow: 0 0 0 3px rgba(138, 181, 255, 0.25); background: #11273E; }
+    .ht-input::placeholder, .ht-textarea::placeholder { color: #8EA2C2; }
+    .ht-input::-webkit-date-and-time-value { text-align: left; }
+    input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type="number"] { -moz-appearance: textfield; }
 
-  .ht-input, .ht-textarea {
-    width: 100%; min-height: 46px; padding: 10px 12px; font-size: 16px; font-family: var(--font-sans);
-    color: #E6ECF5; background: #0F1B2D; border: 1px solid #2A3D5F; border-radius: 10px;
-    outline: none; transition: border-color 0.15s, box-shadow 0.15s; -webkit-appearance: none; appearance: none;
-  }
-  .ht-input:focus, .ht-textarea:focus { border-color: #4D8BFF; box-shadow: 0 0 0 3px rgba(77,139,255,0.18); }
-  .ht-input::placeholder, .ht-textarea::placeholder { color: #5C7090; }
-  .ht-input::-webkit-date-and-time-value { text-align: left; }
-  input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-  input[type="number"] { -moz-appearance: textfield; }
+    .ht-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
-  .ht-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .ht-bp { display: flex; align-items: center; gap: 12px; }
+    .ht-bp .ht-input { text-align: center; font-size: 18px; font-weight: 500; padding: 10px 8px; background: #0D1F33; }
+    .ht-sep { font-size: 24px; color: #BFD6FE; font-weight: 400; }
 
-  .ht-bp { display: flex; align-items: center; gap: 10px; }
-  .ht-bp .ht-input { text-align: center; font-size: 18px; font-weight: 500; padding: 10px 8px; }
-  .ht-sep { font-size: 22px; color: #5C7090; font-weight: 300; }
+    .ht-textarea { min-height: 92px; resize: none; line-height: 1.48; overflow: hidden; background: #0D1F33; }
 
-  .ht-textarea { min-height: 92px; resize: none; line-height: 1.5; overflow: hidden; }
+    .ht-btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; min-height: 50px; padding: 12px 18px; font-size: 16px; font-weight: 500;
+      color: #FFFFFF; background: #2A6DF0; border: 1px solid #5E8CE6; border-radius: 40px;
+      cursor: pointer; font-family: var(--font-sans, system-ui); letter-spacing: 0.01em;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: background 0.2s, transform 0.05s, box-shadow 0.2s;
+    }
+    .ht-btn:hover { background: #1E5AD9; box-shadow: 0 4px 12px rgba(42,109,240,0.4); }
+    .ht-btn:active { transform: translateY(1px); }
+    .ht-btn-secondary {
+      background: #253E60; color: #E9F0FF; border: 1px solid #4C6D95; box-shadow: none; min-height: 46px; font-size: 14px;
+    }
+    .ht-btn-secondary:hover { background: #2F4C74; color: #FFFFFF; box-shadow: none; }
+    .ht-btn-danger { background: #352A3C; color: #FFB8B8; border-color: #774D5E; }
+    .ht-btn-danger:hover { background: #4F3444; color: #FFD0D0; }
 
-  .ht-btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-    width: 100%; min-height: 50px; padding: 12px 18px; font-size: 16px; font-weight: 500;
-    color: #FFFFFF; background: #2563EB; border: 1px solid #2563EB; border-radius: 12px;
-    cursor: pointer; font-family: var(--font-sans); letter-spacing: 0.01em;
-    box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 2px 6px rgba(37,99,235,0.35);
-    transition: background 0.15s, transform 0.05s, box-shadow 0.15s;
-  }
-  .ht-btn:hover { background: #1E55D6; box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 4px 10px rgba(37,99,235,0.45); }
-  .ht-btn:active { transform: translateY(1px); }
-  .ht-btn-secondary {
-    background: transparent; color: #B8C7E2; border: 1px solid #2A3D5F; box-shadow: none; min-height: 44px; font-size: 14px;
-  }
-  .ht-btn-secondary:hover { background: #1A2A45; color: #E6ECF5; box-shadow: none; }
-  .ht-btn-danger { background: transparent; color: #F08D8D; border-color: #4A2A35; box-shadow: none; }
-  .ht-btn-danger:hover { background: #2A1A24; color: #FFB3B3; }
+    .ht-list-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .ht-count { font-size: 12px; color: #CDE0FF; background: #1E344E; padding: 3px 10px; border-radius: 40px; border: 1px solid #4C6D95; font-weight: 500; }
 
-  .ht-list-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-  .ht-count { font-size: 12px; color: #8FA3C4; background: #0F1B2D; padding: 3px 8px; border-radius: 999px; border: 1px solid #2A3D5F; }
+    .ht-list { list-style: none; padding: 0; margin: 0; }
+    .ht-item { padding: 12px 0; border-bottom: 1px solid #3F5A7E; }
+    .ht-item:last-child { border-bottom: none; }
+    .ht-item-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .ht-item-main { flex: 1; min-width: 0; }
+    .ht-item-val { font-size: 17px; font-weight: 500; color: #FFFFFF; font-variant-numeric: tabular-nums; }
+    .ht-item-pulse { font-size: 13px; color: #BFD6FE; margin-left: 8px; font-weight: 400; }
+    .ht-item-time { font-size: 12px; color: #ACCAFF; margin-top: 2px; font-variant-numeric: tabular-nums; }
+    .ht-item-desc { font-size: 13px; color: #E2ECFF; margin-top: 6px; line-height: 1.45; overflow-wrap: anywhere; }
+    .ht-item-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .ht-icon-btn {
+      width: 36px; height: 36px; border-radius: 12px; background: #1F3858; border: 1px solid #4F719A;
+      color: #CDE3FF; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .ht-icon-btn:hover { background: #2C4B74; color: #FFFFFF; border-color: #89ADDB; }
+    .ht-icon-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; }
+    .ht-icon-btn.danger:hover { color: #FFA5A5; border-color: #D67A8A; background: #472E3C; }
 
-  .ht-list { list-style: none; padding: 0; margin: 0; }
-  .ht-item { padding: 12px 0; border-bottom: 1px solid #1F314F; }
-  .ht-item:last-child { border-bottom: none; }
-  .ht-item-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-  .ht-item-main { flex: 1; min-width: 0; }
-  .ht-item-val { font-size: 17px; font-weight: 500; color: #E6ECF5; font-variant-numeric: tabular-nums; }
-  .ht-item-pulse { font-size: 13px; color: #8FA3C4; margin-left: 8px; font-weight: 400; }
-  .ht-item-time { font-size: 12px; color: #8FA3C4; margin-top: 2px; font-variant-numeric: tabular-nums; }
-  .ht-item-desc { font-size: 13px; color: #B8C7E2; margin-top: 6px; line-height: 1.45; overflow-wrap: anywhere; }
-  .ht-item-actions { display: flex; gap: 6px; flex-shrink: 0; }
-  .ht-icon-btn {
-    width: 36px; height: 36px; border-radius: 9px; background: transparent; border: 1px solid #2A3D5F;
-    color: #8FA3C4; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
-    transition: background 0.15s, color 0.15s, border-color 0.15s;
-  }
-  .ht-icon-btn:hover { background: #1A2A45; color: #E6ECF5; border-color: #3D5478; }
-  .ht-icon-btn svg { width: 16px; height: 16px; }
-  .ht-icon-btn.danger:hover { color: #F08D8D; border-color: #4A2A35; background: #2A1A24; }
+    .ht-empty { font-size: 13px; color: #BDD4FF; text-align: center; padding: 24px 0; background: #1F344F; border-radius: 28px; margin-top: 6px; }
 
-  .ht-empty { font-size: 13px; color: #6F84A6; text-align: center; padding: 20px 0; }
+    .ht-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
+    .ht-stat { background: #1A2E48; border: 1px solid #4C6D8F; border-radius: 18px; padding: 10px 12px; }
+    .ht-stat-label { font-size: 11px; color: #B9D3FF; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500; }
+    .ht-stat-val { font-size: 18px; font-weight: 600; color: #FFFFFF; font-variant-numeric: tabular-nums; margin-top: 4px; }
 
-  .ht-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
-  .ht-stat { background: #0F1B2D; border: 1px solid #1F314F; border-radius: 10px; padding: 10px 12px; }
-  .ht-stat-label { font-size: 11px; color: #8FA3C4; text-transform: uppercase; letter-spacing: 0.05em; }
-  .ht-stat-val { font-size: 17px; font-weight: 500; color: #E6ECF5; font-variant-numeric: tabular-nums; margin-top: 2px; }
+    .ht-export-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+    .ht-export-grid .ht-btn-secondary { min-height: 48px; }
 
-  .ht-export-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .ht-export-grid .ht-btn-secondary { min-height: 48px; }
+    .ht-toast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(10px);
+      background: #2A6DF0; color: #FFFFFF; font-size: 14px; padding: 12px 22px; border-radius: 60px;
+      opacity: 0; transition: opacity 0.2s, transform 0.2s; pointer-events: none; z-index: 200;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.35); font-weight: 500;
+    }
+    .ht-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-  .ht-toast {
-    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(10px);
-    background: #2563EB; color: #FFFFFF; font-size: 14px; padding: 10px 18px; border-radius: 999px;
-    opacity: 0; transition: opacity 0.2s, transform 0.2s; pointer-events: none; z-index: 50;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
-  }
-  .ht-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-  @media (max-width: 480px) {
-    .ht-shell { padding: 14px 12px 16px; border-radius: 14px; }
-    .ht-card { padding: 14px; }
-    .ht-stats { grid-template-columns: repeat(3, 1fr); gap: 6px; }
-    .ht-stat { padding: 8px 10px; }
-  }
-</style>
-
+    @media (max-width: 480px) {
+      body { padding: 12px; }
+      .ht-shell { padding: 14px 12px 16px; border-radius: 20px; }
+      .ht-card { padding: 14px; }
+      .ht-stats { gap: 8px; }
+      .ht-stat { padding: 8px 10px; }
+      .ht-export-grid { gap: 8px; }
+    }
+  </style>
+</head>
+<body>
 <div class="ht">
   <div class="ht-shell">
 
@@ -142,13 +164,13 @@
       </div>
 
       <button id="ht-add" class="ht-btn">Add entry</button>
-      <button id="ht-cancel-edit" class="ht-btn ht-btn-secondary" style="display: none; margin-top: 8px;">Cancel edit</button>
+      <button id="ht-cancel-edit" class="ht-btn ht-btn-secondary" style="display: none; margin-top: 10px;">Cancel edit</button>
     </div>
 
     <div class="ht-card">
       <div class="ht-list-head">
         <p class="ht-h" style="margin: 0;">Entries <span class="ht-count" id="ht-count">0</span></p>
-        <button id="ht-clear" class="ht-btn ht-btn-secondary ht-btn-danger" style="width: auto; padding: 6px 12px; min-height: 32px; font-size: 12px;">Clear all</button>
+        <button id="ht-clear" class="ht-btn ht-btn-secondary ht-btn-danger" style="width: auto; padding: 6px 14px; min-height: 34px; font-size: 12px; border-radius: 30px;">Clear all</button>
       </div>
 
       <div class="ht-stats" id="ht-stats" style="display: none;">
@@ -190,7 +212,6 @@
     </div>
 
   </div>
-
   <div class="ht-toast" id="ht-toast">OK</div>
 </div>
 
@@ -385,23 +406,12 @@
   });
   setTimeout(() => autosize(notesEl), 0);
 
-  // ---------- Export: PDF ----------
+  // ---------- Export: PDF (same logic, compatible fonts) ----------
   $('ht-pdf').addEventListener('click', async () => {
     try {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-      try {
-        const fontUrl = 'https://cdnjs.cloudflare.com/ajax/libs/dejavu-sans/1.0.0/fonts/dejavu-sans.ttf';
-        const buf = await fetch(fontUrl).then(r => { if(!r.ok) throw new Error('font'); return r.arrayBuffer(); });
-        const bytes = new Uint8Array(buf);
-        let bin = ''; for (let i=0;i<bytes.length;i++) bin += String.fromCharCode(bytes[i]);
-        const b64 = btoa(bin);
-        doc.addFileToVFS('DejaVuSans.ttf', b64);
-        doc.addFont('DejaVuSans.ttf', 'DejaVuSans', 'normal');
-        doc.setFont('DejaVuSans');
-      } catch (e) {
-        doc.setFont('helvetica');
-      }
+      doc.setFont('helvetica');
       doc.setFontSize(16);
       doc.text('Health Tracker — Blood pressure log', 40, 50);
       doc.setFontSize(10);
@@ -422,8 +432,8 @@
       doc.autoTable({
         head, body,
         startY: 84,
-        styles: { font: doc.getFont().fontName, fontSize: 10, cellPadding: 6 },
-        headStyles: { fillColor: [240,240,240], textColor: 20, font: doc.getFont().fontName, fontStyle: 'normal' },
+        styles: { fontSize: 10, cellPadding: 6 },
+        headStyles: { fillColor: [80, 120, 200], textColor: 255, fontStyle: 'bold' },
         columnStyles: { 5: { cellWidth: 180 } }
       });
       let y = doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY + 24 : 100;
@@ -443,7 +453,7 @@
     }
   });
 
-  // ---------- Export: XLSX ----------
+  // XLSX
   $('ht-xlsx').addEventListener('click', () => {
     try {
       const sorted = [...records].sort((a,b) => {
@@ -481,7 +491,7 @@
     }
   });
 
-  // ---------- JSON save / upload ----------
+  // JSON save / upload (identical)
   $('ht-json-save').addEventListener('click', () => {
     const payload = { version: 1, exportedAt: new Date().toISOString(), records, notes };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -532,3 +542,5 @@
   render();
 })();
 </script>
+</body>
+</html>
