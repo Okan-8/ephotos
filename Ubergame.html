@@ -3,15 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Übergame · German Swipe Flashcards</title>
+    <title>Übergame · Tinder-style German Flashcards</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
             -webkit-tap-highlight-color: transparent;
+            user-select: none;
         }
 
         body {
@@ -33,14 +32,12 @@
         .header {
             background: #063970;
             color: white;
-            padding: 20px 20px;
+            padding: 20px;
             text-align: center;
         }
 
         .header h1 {
             font-size: 28px;
-            font-weight: 700;
-            letter-spacing: -0.5px;
         }
 
         .header p {
@@ -52,7 +49,7 @@
             padding: 24px;
         }
 
-        /* Setup Screen */
+        /* Setup / Login styles */
         .section {
             margin-bottom: 20px;
         }
@@ -62,7 +59,6 @@
             font-weight: 600;
             color: #063970;
             margin-bottom: 8px;
-            text-transform: uppercase;
         }
 
         select, input {
@@ -71,7 +67,6 @@
             border: 2px solid #e0e0e0;
             border-radius: 16px;
             font-size: 16px;
-            background: white;
         }
 
         .radio-group {
@@ -135,41 +130,56 @@
             color: #333;
         }
 
-        /* Swipe Card */
-        .swipe-area {
+        /* SWIPE CARD CONTAINER */
+        .swipe-container {
             position: relative;
+            width: 100%;
+            min-height: 380px;
             margin-bottom: 20px;
             touch-action: pan-y pinch-zoom;
         }
 
+        .card-stack {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
         .swipe-card {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
             background: #063970;
             color: white;
-            padding: 40px 20px;
             border-radius: 32px;
+            padding: 40px 20px;
             text-align: center;
-            min-height: 300px;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             gap: 15px;
             box-shadow: 0 12px 28px rgba(0,0,0,0.2);
-            cursor: pointer;
-            transition: 0.1s linear;
-            position: relative;
+            cursor: grab;
+            transition: transform 0.1s linear, opacity 0.2s ease;
+            will-change: transform;
+            touch-action: none;
+            z-index: 2;
+        }
+
+        .swipe-card:active {
+            cursor: grabbing;
         }
 
         .card-front {
             font-size: 32px;
             font-weight: 800;
             word-break: break-word;
-            line-height: 1.3;
         }
 
         .card-translation {
             font-size: 24px;
-            font-weight: 500;
             background: rgba(255,255,255,0.15);
             padding: 12px 24px;
             border-radius: 60px;
@@ -191,6 +201,7 @@
             font-size: 20px;
             cursor: pointer;
             backdrop-filter: blur(4px);
+            z-index: 10;
         }
 
         .card-badge {
@@ -210,7 +221,6 @@
             padding: 8px;
             border-radius: 40px;
             margin: 12px 0;
-            color: #444;
         }
 
         .action-row {
@@ -245,7 +255,6 @@
             font-weight: 600;
             color: #063970;
             font-size: 14px;
-            display: inline-block;
         }
 
         .game-stats {
@@ -260,11 +269,7 @@
             margin-top: 8px;
         }
 
-        .reset-group button {
-            margin-bottom: 0;
-        }
-
-        /* screens */
+        /* Screens */
         #setupScreen, #gameScreen, #loginScreen, #grammarScreen {
             display: none;
         }
@@ -290,28 +295,9 @@
         .grammar-note {
             background: #f8f9fa;
             border-left: 4px solid #063970;
-            padding: 18px;
+            padding: 16px;
             border-radius: 16px;
-            margin-bottom: 20px;
-        }
-
-        .reference-table {
-            background: white;
-            border-radius: 16px;
-            overflow-x: auto;
-            margin: 20px 0;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-
-        .reference-table table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .reference-table th, .reference-table td {
-            padding: 10px;
-            text-align: left;
-            border-bottom: 1px solid #eee;
+            margin-bottom: 16px;
         }
     </style>
 </head>
@@ -365,23 +351,25 @@
         <button id="logoutBtn" style="display:none; margin-top:12px;" class="btn-secondary">🚪 Logout</button>
     </div>
 
-    <!-- GAME SCREEN (SWIPE) -->
+    <!-- GAME SCREEN -->
     <div id="gameScreen" class="content">
         <div class="game-stats">
             <span class="counter-pill" id="remainingCount">📇 0 cards</span>
             <span class="counter-pill" id="dirBadge">DE → EN</span>
         </div>
-        <div class="swipe-area" id="swipeArea">
-            <div class="swipe-card" id="swipeCard">
-                <div class="speak-icon" id="speakCard">🔊</div>
-                <div class="card-front" id="frontText">Let's go</div>
-                <div class="card-translation" id="transBlock" style="display:none;"></div>
-                <div class="pronunciation-hint" id="pronounceHint"></div>
-                <div class="card-badge">👇 tap to reveal</div>
+        <div class="swipe-container" id="swipeContainer">
+            <div class="card-stack" id="cardStack">
+                <div class="swipe-card" id="swipeCard">
+                    <div class="speak-icon" id="speakCard">🔊</div>
+                    <div class="card-front" id="frontText">Ready?</div>
+                    <div class="card-translation" id="transBlock" style="display:none;"></div>
+                    <div class="pronunciation-hint" id="pronounceHint"></div>
+                    <div class="card-badge">👇 tap to reveal</div>
+                </div>
             </div>
         </div>
         <div class="swipe-instruction">
-            ⬅️ LEFT → practice later &nbsp;&nbsp;|&nbsp;&nbsp; ➡️ RIGHT → learned ✓ &nbsp;&nbsp;|&nbsp;&nbsp; 👆 tap for answer
+            ⬅️ Drag LEFT → practice later &nbsp;&nbsp;|&nbsp;&nbsp; ➡️ Drag RIGHT → learned ✓ &nbsp;&nbsp;|&nbsp;&nbsp; 👆 tap for answer
         </div>
         <div class="action-row">
             <button class="swipe-btn left" id="leftBtn">↩️ Need practice</button>
@@ -403,9 +391,9 @@
 <button class="login-btn" id="floatingLoginBtn">🔐</button>
 
 <script>
-    // --------------------------------------------------------------
-    //  FULL VOCABULARY DATA (embedded from original words.js)
-    // --------------------------------------------------------------
+    // ----------------------------------------------
+    //  EMBEDDED VOCABULARY (core set)
+    // ----------------------------------------------
     const WORDS_DATA = [
         {"group": "Exclamations", "german": "Hilfe!", "english": "Help!", "pronunciation": "hil-fe"},
         {"group": "Exclamations", "german": "Halt!", "english": "Stop!", "pronunciation": "halt"},
@@ -414,42 +402,41 @@
         {"group": "Greetings", "german": "Guten Tag!", "english": "Good afternoon!", "pronunciation": "gu-tın taag"},
         {"group": "Greetings", "german": "Ich heiße _.", "english": "My name is _.", "pronunciation": "ih hay-se"},
         {"group": "Greetings", "german": "Wie geht es dir?", "english": "How are you? (informal)", "pronunciation": "vii geyt es diir"},
-        {"group": "Feelings & States", "german": "Ich habe Hunger.", "english": "I'm hungry.", "pronunciation": "ih haa-be hun-ger"},
-        {"group": "Feelings & States", "german": "Ich liebe dich.", "english": "I love you.", "pronunciation": "ih lii-be dih"},
-        {"group": "Daily conversation", "german": "Was kostet das?", "english": "How much is that?", "pronunciation": "vas kos-tet das"},
-        {"group": "Daily conversation", "german": "Ich verstehe nicht.", "english": "I don't understand.", "pronunciation": "ih fer-ştee-e niht"},
+        {"group": "Feelings", "german": "Ich habe Hunger.", "english": "I'm hungry.", "pronunciation": "ih haa-be hun-ger"},
+        {"group": "Feelings", "german": "Ich liebe dich.", "english": "I love you.", "pronunciation": "ih lii-be dih"},
+        {"group": "Daily", "german": "Was kostet das?", "english": "How much is that?", "pronunciation": "vas kos-tet das"},
+        {"group": "Daily", "german": "Ich verstehe nicht.", "english": "I don't understand.", "pronunciation": "ih fer-ştee-e niht"},
         {"group": "Time", "german": "Wie spät ist es?", "english": "What time is it?", "pronunciation": "vii şpeet ist es?"},
         {"group": "Time", "german": "Es ist halb elf.", "english": "It's half past ten.", "pronunciation": "es ist halp elf"},
         {"group": "Professions", "german": "Ich bin Ingenieur.", "english": "I am an engineer.", "pronunciation": "ih bin in-je-nyör"},
-        {"group": "the adjective", "german": "neu", "english": "new", "pronunciation": "noy"},
-        {"group": "the adjective", "german": "wichtig", "english": "important", "pronunciation": "vih-tig"},
-        {"group": "the noun", "german": "der Hund", "english": "the dog", "pronunciation": "deyr hunt"},
-        {"group": "the noun", "german": "die Katze", "english": "the cat", "pronunciation": "dii kat-se"},
-        {"group": "the verb", "german": "sein", "english": "to be", "pronunciation": "zayn"},
-        {"group": "the verb", "german": "kommen", "english": "to come", "pronunciation": "kom-mın"},
-        {"group": "the adverb", "german": "heute", "english": "today", "pronunciation": "hoy-te"},
-        {"group": "the noun - days", "german": "der Montag", "english": "Monday", "pronunciation": "mo:n-tag"},
-        {"group": "The number", "german": "eins", "english": "one", "pronunciation": "aynts"},
-        {"group": "The number", "german": "zehn", "english": "ten", "pronunciation": "tseyn"},
+        {"group": "Adjectives", "german": "neu", "english": "new", "pronunciation": "noy"},
+        {"group": "Adjectives", "german": "wichtig", "english": "important", "pronunciation": "vih-tig"},
+        {"group": "Nouns", "german": "der Hund", "english": "the dog", "pronunciation": "deyr hunt"},
+        {"group": "Nouns", "german": "die Katze", "english": "the cat", "pronunciation": "dii kat-se"},
+        {"group": "Verbs", "german": "sein", "english": "to be", "pronunciation": "zayn"},
+        {"group": "Verbs", "german": "kommen", "english": "to come", "pronunciation": "kom-mın"},
+        {"group": "Adverbs", "german": "heute", "english": "today", "pronunciation": "hoy-te"},
+        {"group": "Days", "german": "der Montag", "english": "Monday", "pronunciation": "mo:n-tag"},
+        {"group": "Numbers", "german": "eins", "english": "one", "pronunciation": "aynts"},
+        {"group": "Numbers", "german": "zehn", "english": "ten", "pronunciation": "tseyn"},
     ];
 
-    // Grammar notes & reference tables (simplified embed)
     const GRAMMAR_NOTES = [
-        { title: "German Sentence Structure", content: "Main verb comes second in main clauses: 'Ich lerne Deutsch.'" },
-        { title: "Nominative Pronouns", content: "ich, du, er/sie/es, wir, ihr, sie/Sie" },
+        { title: "Sentence Structure", content: "Verb always second position in main clauses." },
+        { title: "Nominative Pronouns", content: "ich, du, er/sie/es, wir, ihr, sie/Sie" }
     ];
     const REFERENCE_TABLES = [
         { title: "Possessive Pronouns", data: [["mein","my","mayn"],["dein","your","dayn"],["sein","his","zayn"]] }
     ];
 
-    // --------------------------------------------------------------
+    // ----------------------------------------------
     //  GLOBAL STATE
-    // --------------------------------------------------------------
-    let currentDeck = [];        // array of word objects (remaining)
-    let currentCard = null;
+    // ----------------------------------------------
+    let currentDeck = [];           // words array
+    let currentCardObj = null;
     let showingAnswer = false;
     let showPronunciation = false;
-    let direction = "de-en";     // 'de-en' or 'en-de'
+    let direction = "de-en";
     let isLoggedIn = false;
     let mixedMode = true;
     
@@ -463,9 +450,10 @@
     const pronounceHint = document.getElementById('pronounceHint');
     const remainingSpan = document.getElementById('remainingCount');
     const dirBadge = document.getElementById('dirBadge');
+    const swipeCardElem = document.getElementById('swipeCard');
 
-    // Helper: shuffle array
-    function shuffle(arr) {
+    // Helper: shuffle
+    function shuffleArray(arr) {
         for (let i = arr.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [arr[i], arr[j]] = [arr[j], arr[i]];
@@ -473,33 +461,34 @@
         return arr;
     }
 
-    // Build deck based on group & settings
+    // Build deck from group + shuffle
     function buildDeck() {
         const group = document.getElementById('groupSelect').value;
         let filtered = (group === 'All') ? [...WORDS_DATA] : WORDS_DATA.filter(w => w.group === group);
         if (filtered.length === 0) return [];
         const shouldShuffle = isLoggedIn ? mixedMode : true;
-        if (shouldShuffle) filtered = shuffle([...filtered]);
+        if (shouldShuffle) filtered = shuffleArray([...filtered]);
         return filtered;
     }
 
-    // Get front/back strings
+    // get front/back strings
     function getFront(w) { return direction === 'de-en' ? w.german : w.english; }
     function getBack(w) { return direction === 'de-en' ? w.english : w.german; }
 
+    // Update card UI based on showingAnswer flag
     function updateCardUI() {
-        if (!currentCard) return;
+        if (!currentCardObj) return;
         if (!showingAnswer) {
             frontText.style.display = 'block';
-            frontText.innerText = getFront(currentCard);
+            frontText.innerText = getFront(currentCardObj);
             transBlock.style.display = 'none';
         } else {
             frontText.style.display = 'none';
             transBlock.style.display = 'block';
-            transBlock.innerText = getBack(currentCard);
+            transBlock.innerText = getBack(currentCardObj);
         }
-        if (showPronunciation && currentCard.pronunciation) {
-            pronounceHint.innerText = `[${currentCard.pronunciation}]`;
+        if (showPronunciation && currentCardObj.pronunciation) {
+            pronounceHint.innerText = `[${currentCardObj.pronunciation}]`;
             pronounceHint.style.display = 'block';
         } else {
             pronounceHint.innerText = '';
@@ -508,49 +497,57 @@
         dirBadge.innerText = direction === 'de-en' ? '🇩🇪→🇬🇧' : '🇬🇧→🇩🇪';
     }
 
+    // Load next card from deck (first element)
     function loadNextCard() {
         if (currentDeck.length === 0) {
             frontText.style.display = 'block';
-            frontText.innerText = '🎉✨ Perfect! ✨🎉\nNo cards left.';
+            frontText.innerText = '🎉✨ Fertig! ✨🎉\nAll cards mastered!';
             transBlock.style.display = 'none';
             pronounceHint.innerText = '';
-            currentCard = null;
+            currentCardObj = null;
             remainingSpan.innerText = '✅ Complete! 0 cards';
             return;
         }
         showingAnswer = false;
-        currentCard = currentDeck[0];
+        currentCardObj = currentDeck[0];
         updateCardUI();
         remainingSpan.innerText = `📚 ${currentDeck.length} card${currentDeck.length !== 1 ? 's' : ''}`;
     }
 
-    // Swipe actions
-    function swipeLeft() {
-        if (!currentCard || currentDeck.length === 0) return;
-        const card = currentDeck.shift();
-        currentDeck.push(card);   // move to back
-        loadNextCard();
-    }
+    // SWIPE ACTIONS (called after drag release)
     function swipeRight() {
-        if (!currentCard || currentDeck.length === 0) return;
-        currentDeck.shift();      // remove permanently
+        if (!currentCardObj || currentDeck.length === 0) return;
+        // REMOVE card (learned)
+        currentDeck.shift();
         loadNextCard();
     }
 
+    function swipeLeft() {
+        if (!currentCardObj || currentDeck.length === 0) return;
+        // MOVE to back (practice later)
+        const card = currentDeck.shift();
+        currentDeck.push(card);
+        loadNextCard();
+    }
+
+    // Reset deck (preserve settings)
     function resetGame() {
         currentDeck = buildDeck();
-        if (currentDeck.length === 0) { alert("No words in this group. Change group."); showScreen('setupScreen'); return; }
+        if (currentDeck.length === 0) {
+            alert("No words in this group. Change group or add vocabulary.");
+            showScreen('setupScreen');
+            return;
+        }
         loadNextCard();
     }
 
-    // Start game from setup
     function startGame() {
         direction = document.querySelector('input[name="direction"]:checked').value;
         showPronunciation = document.getElementById('showPronCheck').checked;
         if (isLoggedIn) mixedMode = document.getElementById('mixedModeCheck').checked;
         else mixedMode = true;
         currentDeck = buildDeck();
-        if (currentDeck.length === 0) { alert("No words found. Choose another group."); return; }
+        if (currentDeck.length === 0) { alert("No words in selected group."); return; }
         loadNextCard();
         showScreen('gameScreen');
     }
@@ -561,20 +558,7 @@
         document.getElementById(id).classList.add('active');
     }
 
-    // Populate groups dropdown
-    function populateGroups() {
-        const select = document.getElementById('groupSelect');
-        const groups = new Set();
-        WORDS_DATA.forEach(w => { if (w.group) groups.add(w.group); });
-        groups.forEach(g => {
-            const opt = document.createElement('option');
-            opt.value = g;
-            opt.textContent = g;
-            select.appendChild(opt);
-        });
-    }
-
-    // Grammar view
+    // Grammar display
     function showGrammar() {
         const container = document.getElementById('grammarContainer');
         let html = '';
@@ -584,14 +568,14 @@
             t.data.forEach(row => { html += `<tr><td>${row[0]}</td><td>${row[1]}</td><td>${row[2]}</td></tr>`; });
             html += `</tbody></table></div>`;
         });
-        container.innerHTML = html || "<p>No extra notes.</p>";
+        container.innerHTML = html;
         showScreen('grammarScreen');
     }
 
-    // Speech
-    function speakWord() {
-        if (!currentCard) return;
-        const text = direction === 'de-en' ? currentCard.german : currentCard.english;
+    // Speak word
+    function speakCurrent() {
+        if (!currentCardObj) return;
+        const text = direction === 'de-en' ? currentCardObj.german : currentCardObj.english;
         const lang = direction === 'de-en' ? 'de-DE' : 'en-US';
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = lang;
@@ -600,20 +584,109 @@
         window.speechSynthesis.speak(utterance);
     }
 
-    // Touch Swipe handling
-    let touchStartX = 0;
-    function onTouchStart(e) { touchStartX = e.changedTouches[0].screenX; }
-    function onTouchEnd(e) {
-        if (!currentCard || currentDeck.length === 0) return;
-        const diff = e.changedTouches[0].screenX - touchStartX;
-        if (Math.abs(diff) > 70) {
-            if (diff > 0) swipeRight();
-            else swipeLeft();
+    // ---------------------------------------------------------
+    //  TINDER-STYLE DRAG (mouse + touch)
+    // ---------------------------------------------------------
+    let startX = 0, currentX = 0;
+    let isDragging = false;
+    let dragStartTransform = 0;
+    let dragThreshold = 120;   // pixels to trigger swipe
+
+    function onDragStart(clientX) {
+        if (!currentCardObj || currentDeck.length === 0) return;
+        isDragging = true;
+        startX = clientX;
+        dragStartTransform = 0;
+        swipeCardElem.style.transition = 'none';
+        swipeCardElem.style.cursor = 'grabbing';
+    }
+
+    function onDragMove(clientX) {
+        if (!isDragging) return;
+        const deltaX = clientX - startX;
+        currentX = deltaX;
+        swipeCardElem.style.transform = `translateX(${deltaX}px) rotate(${deltaX * 0.02}deg)`;
+        // Add opacity effect when dragging far
+        const opacity = 1 - Math.min(Math.abs(deltaX) / 300, 0.5);
+        swipeCardElem.style.opacity = opacity;
+    }
+
+    function onDragEnd() {
+        if (!isDragging) return;
+        isDragging = false;
+        swipeCardElem.style.transition = 'transform 0.2s ease, opacity 0.2s ease';
+        swipeCardElem.style.cursor = 'grab';
+        const absDelta = Math.abs(currentX);
+        if (absDelta > dragThreshold) {
+            // SWIPE triggered
+            if (currentX > 0) {
+                // RIGHT SWIPE -> learned
+                swipeCardElem.style.transform = 'translateX(400px) rotate(20deg)';
+                setTimeout(() => {
+                    swipeRight();
+                    resetCardPosition();
+                }, 150);
+            } else {
+                // LEFT SWIPE -> practice later
+                swipeCardElem.style.transform = 'translateX(-400px) rotate(-20deg)';
+                setTimeout(() => {
+                    swipeLeft();
+                    resetCardPosition();
+                }, 150);
+            }
+        } else {
+            // no swipe: reset position
+            resetCardPosition();
+        }
+        currentX = 0;
+    }
+
+    function resetCardPosition() {
+        swipeCardElem.style.transition = 'transform 0.2s ease, opacity 0.2s ease';
+        swipeCardElem.style.transform = 'translateX(0px) rotate(0deg)';
+        swipeCardElem.style.opacity = '1';
+        setTimeout(() => {
+            swipeCardElem.style.transition = '';
+        }, 250);
+    }
+
+    // Attach drag events (mouse + touch)
+    function initDragEvents() {
+        // Touch events
+        swipeCardElem.addEventListener('touchstart', (e) => {
             e.preventDefault();
+            onDragStart(e.touches[0].clientX);
+        });
+        window.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            e.preventDefault();
+            onDragMove(e.touches[0].clientX);
+        });
+        window.addEventListener('touchend', () => {
+            onDragEnd();
+        });
+        // Mouse events (for desktop testing)
+        swipeCardElem.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            onDragStart(e.clientX);
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mouseup', onMouseUp);
+        });
+        function onMouseMove(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            onDragMove(e.clientX);
+        }
+        function onMouseUp() {
+            onDragEnd();
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
         }
     }
 
-    // Login system
+    // ---------------------------------------------------------
+    //  LOGIN SYSTEM
+    // ---------------------------------------------------------
     function setupLogin() {
         const floating = document.getElementById('floatingLoginBtn');
         const doLogin = document.getElementById('doLoginBtn');
@@ -630,61 +703,69 @@
                 document.getElementById('loginMsg').innerText = '';
                 adminExtra.style.display = 'block';
                 logout.style.display = 'block';
-                document.getElementById('floatingLoginBtn').style.display = 'none';
+                floating.style.display = 'none';
                 showScreen('setupScreen');
-                // re-populate mixed mode default
                 document.getElementById('mixedModeCheck').checked = true;
             } else {
-                document.getElementById('loginMsg').innerText = 'Invalid credentials';
+                document.getElementById('loginMsg').innerText = 'Wrong credentials';
             }
         });
         logout.addEventListener('click', () => {
             isLoggedIn = false;
             adminExtra.style.display = 'none';
             logout.style.display = 'none';
-            document.getElementById('floatingLoginBtn').style.display = 'block';
+            floating.style.display = 'block';
             showScreen('setupScreen');
         });
     }
 
-    // Event listeners
+    // Populate group dropdown
+    function populateGroups() {
+        const select = document.getElementById('groupSelect');
+        const groups = new Set();
+        WORDS_DATA.forEach(w => { if (w.group) groups.add(w.group); });
+        groups.forEach(g => {
+            const opt = document.createElement('option');
+            opt.value = g;
+            opt.textContent = g;
+            select.appendChild(opt);
+        });
+    }
+
+    // Bind buttons and other events
     function bindEvents() {
         document.getElementById('startGameBtn').addEventListener('click', startGame);
-        document.getElementById('leftBtn').addEventListener('click', () => swipeLeft());
-        document.getElementById('rightBtn').addEventListener('click', () => swipeRight());
+        document.getElementById('leftBtn').addEventListener('click', () => { if (currentCardObj) swipeLeft(); });
+        document.getElementById('rightBtn').addEventListener('click', () => { if (currentCardObj) swipeRight(); });
         document.getElementById('backSetupBtn').addEventListener('click', () => showScreen('setupScreen'));
         document.getElementById('resetDeckBtn').addEventListener('click', resetGame);
         document.getElementById('grammarNotesBtn').addEventListener('click', showGrammar);
         document.getElementById('backFromGrammar').addEventListener('click', () => showScreen('setupScreen'));
-        document.getElementById('speakCard').addEventListener('click', (e) => { e.stopPropagation(); speakWord(); });
-        const cardDiv = document.getElementById('swipeCard');
-        cardDiv.addEventListener('click', (e) => {
+        document.getElementById('speakCard').addEventListener('click', (e) => { e.stopPropagation(); speakCurrent(); });
+        swipeCardElem.addEventListener('click', (e) => {
             if (e.target.classList.contains('speak-icon')) return;
-            if (!currentCard) return;
+            if (!currentCardObj || currentDeck.length === 0) return;
             showingAnswer = !showingAnswer;
             updateCardUI();
         });
-        const swipeArea = document.getElementById('swipeArea');
-        swipeArea.addEventListener('touchstart', onTouchStart, { passive: false });
-        swipeArea.addEventListener('touchend', onTouchEnd);
-        // update pronunciation on checkbox change
         document.getElementById('showPronCheck').addEventListener('change', (e) => {
             showPronunciation = e.target.checked;
-            if (currentCard) updateCardUI();
+            if (currentCardObj) updateCardUI();
         });
         document.querySelectorAll('input[name="direction"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
                 direction = e.target.value;
-                if (currentCard && gameDiv.classList.contains('active')) updateCardUI();
+                if (currentCardObj && gameDiv.classList.contains('active')) updateCardUI();
             });
         });
     }
 
-    // init
+    // Initialize everything
     function init() {
         populateGroups();
         setupLogin();
         bindEvents();
+        initDragEvents();
         showScreen('setupScreen');
     }
     init();
