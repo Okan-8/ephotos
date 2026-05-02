@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Übergame · Tinder-style German Flashcards</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Übergame · German Flashcards</title>
     <style>
         * {
             margin: 0;
@@ -139,33 +140,24 @@
             touch-action: pan-y pinch-zoom;
         }
 
-        .card-stack {
-            position: relative;
-            width: 100%;
-            height: 100%;
-        }
-
         .swipe-card {
-            position: absolute;
-            top: 0;
-            left: 0;
+            position: relative;
             width: 100%;
             background: #063970;
             color: white;
             border-radius: 32px;
-            padding: 40px 20px;
+            padding: 32px 20px 36px;
             text-align: center;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            gap: 15px;
+            gap: 16px;
             box-shadow: 0 12px 28px rgba(0,0,0,0.2);
             cursor: grab;
             transition: transform 0.1s linear, opacity 0.2s ease;
             will-change: transform;
             touch-action: none;
-            z-index: 2;
         }
 
         .swipe-card:active {
@@ -176,42 +168,50 @@
             font-size: 32px;
             font-weight: 800;
             word-break: break-word;
+            line-height: 1.3;
+            max-width: 100%;
         }
 
         .card-translation {
             font-size: 24px;
             background: rgba(255,255,255,0.15);
-            padding: 12px 24px;
+            padding: 12px 20px;
             border-radius: 60px;
+            word-break: break-word;
+            max-width: 100%;
         }
 
         .pronunciation-hint {
             font-size: 16px;
             opacity: 0.8;
             font-style: italic;
+            word-break: break-word;
+            max-width: 100%;
+            padding: 0 10px;
         }
 
         .speak-icon {
             position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(0,0,0,0.3);
+            top: 16px;
+            left: 16px;
+            background: rgba(0,0,0,0.4);
             border-radius: 40px;
             padding: 8px 12px;
             font-size: 20px;
             cursor: pointer;
             backdrop-filter: blur(4px);
-            z-index: 10;
+            z-index: 15;
         }
 
         .card-badge {
             position: absolute;
-            bottom: 16px;
-            right: 16px;
+            bottom: 12px;
+            right: 12px;
             font-size: 11px;
             background: rgba(0,0,0,0.5);
             padding: 4px 10px;
             border-radius: 30px;
+            pointer-events: none;
         }
 
         .swipe-instruction {
@@ -261,6 +261,8 @@
             display: flex;
             justify-content: space-between;
             margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 8px;
         }
 
         .reset-group {
@@ -298,6 +300,30 @@
             padding: 16px;
             border-radius: 16px;
             margin-bottom: 16px;
+        }
+
+        .reference-table {
+            overflow-x: auto;
+            margin: 16px 0;
+        }
+
+        .reference-table table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        .reference-table th, .reference-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        @media (max-width: 500px) {
+            .card-front { font-size: 28px; }
+            .card-translation { font-size: 22px; }
+            .swipe-card { padding: 28px 16px 32px; }
+            .speak-icon { top: 12px; left: 12px; padding: 6px 10px; font-size: 18px; }
         }
     </style>
 </head>
@@ -358,21 +384,19 @@
             <span class="counter-pill" id="dirBadge">DE → EN</span>
         </div>
         <div class="swipe-container" id="swipeContainer">
-            <div class="card-stack" id="cardStack">
-                <div class="swipe-card" id="swipeCard">
-                    <div class="speak-icon" id="speakCard">🔊</div>
-                    <div class="card-front" id="frontText">Ready?</div>
-                    <div class="card-translation" id="transBlock" style="display:none;"></div>
-                    <div class="pronunciation-hint" id="pronounceHint"></div>
-                    <div class="card-badge">👇 tap to reveal</div>
-                </div>
+            <div class="swipe-card" id="swipeCard">
+                <div class="speak-icon" id="speakCard">🔊</div>
+                <div class="card-front" id="frontText">Ready?</div>
+                <div class="card-translation" id="transBlock" style="display:none;"></div>
+                <div class="pronunciation-hint" id="pronounceHint"></div>
+                <div class="card-badge">👇 tap card</div>
             </div>
         </div>
         <div class="swipe-instruction">
-            ⬅️ Drag LEFT → practice later &nbsp;&nbsp;|&nbsp;&nbsp; ➡️ Drag RIGHT → learned ✓ &nbsp;&nbsp;|&nbsp;&nbsp; 👆 tap for answer
+            ⬅️ Drag LEFT → practice again &nbsp;&nbsp;|&nbsp;&nbsp; ➡️ Drag RIGHT → learned ✓
         </div>
         <div class="action-row">
-            <button class="swipe-btn left" id="leftBtn">↩️ Need practice</button>
+            <button class="swipe-btn left" id="leftBtn">↩️ Needs practice</button>
             <button class="swipe-btn right" id="rightBtn">✔️ Learned</button>
         </div>
         <div class="reset-group">
@@ -392,7 +416,7 @@
 
 <script>
     // ----------------------------------------------
-    //  EMBEDDED VOCABULARY (core set)
+    //  VOCABULARY DATA (expanded from original)
     // ----------------------------------------------
     const WORDS_DATA = [
         {"group": "Exclamations", "german": "Hilfe!", "english": "Help!", "pronunciation": "hil-fe"},
@@ -432,7 +456,7 @@
     // ----------------------------------------------
     //  GLOBAL STATE
     // ----------------------------------------------
-    let currentDeck = [];           // words array
+    let currentDeck = [];
     let currentCardObj = null;
     let showingAnswer = false;
     let showPronunciation = false;
@@ -452,7 +476,6 @@
     const dirBadge = document.getElementById('dirBadge');
     const swipeCardElem = document.getElementById('swipeCard');
 
-    // Helper: shuffle
     function shuffleArray(arr) {
         for (let i = arr.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -461,7 +484,6 @@
         return arr;
     }
 
-    // Build deck from group + shuffle
     function buildDeck() {
         const group = document.getElementById('groupSelect').value;
         let filtered = (group === 'All') ? [...WORDS_DATA] : WORDS_DATA.filter(w => w.group === group);
@@ -471,11 +493,9 @@
         return filtered;
     }
 
-    // get front/back strings
     function getFront(w) { return direction === 'de-en' ? w.german : w.english; }
     function getBack(w) { return direction === 'de-en' ? w.english : w.german; }
 
-    // Update card UI based on showingAnswer flag
     function updateCardUI() {
         if (!currentCardObj) return;
         if (!showingAnswer) {
@@ -497,7 +517,6 @@
         dirBadge.innerText = direction === 'de-en' ? '🇩🇪→🇬🇧' : '🇬🇧→🇩🇪';
     }
 
-    // Load next card from deck (first element)
     function loadNextCard() {
         if (currentDeck.length === 0) {
             frontText.style.display = 'block';
@@ -514,27 +533,23 @@
         remainingSpan.innerText = `📚 ${currentDeck.length} card${currentDeck.length !== 1 ? 's' : ''}`;
     }
 
-    // SWIPE ACTIONS (called after drag release)
     function swipeRight() {
         if (!currentCardObj || currentDeck.length === 0) return;
-        // REMOVE card (learned)
         currentDeck.shift();
         loadNextCard();
     }
 
     function swipeLeft() {
         if (!currentCardObj || currentDeck.length === 0) return;
-        // MOVE to back (practice later)
         const card = currentDeck.shift();
         currentDeck.push(card);
         loadNextCard();
     }
 
-    // Reset deck (preserve settings)
     function resetGame() {
         currentDeck = buildDeck();
         if (currentDeck.length === 0) {
-            alert("No words in this group. Change group or add vocabulary.");
+            alert("No words in this group. Change group.");
             showScreen('setupScreen');
             return;
         }
@@ -552,27 +567,24 @@
         showScreen('gameScreen');
     }
 
-    // Screen navigation
     function showScreen(id) {
         [setupDiv, gameDiv, loginDiv, grammarDiv].forEach(div => div.classList.remove('active'));
         document.getElementById(id).classList.add('active');
     }
 
-    // Grammar display
     function showGrammar() {
         const container = document.getElementById('grammarContainer');
         let html = '';
         GRAMMAR_NOTES.forEach(n => { html += `<div class="grammar-note"><h4>${n.title}</h4><p>${n.content}</p></div>`; });
         REFERENCE_TABLES.forEach(t => {
             html += `<div class="reference-table"><h4>${t.title}</h4><table><thead><tr><th>German</th><th>English</th><th>Pron.</th></tr></thead><tbody>`;
-            t.data.forEach(row => { html += `<tr><td>${row[0]}</td><td>${row[1]}</td><td>${row[2]}</td></tr>`; });
+            t.data.forEach(row => { html += `<tr><td>${row[0]}</td><td>${row[1]}</td><td>${row[2]}</td>`; });
             html += `</tbody></table></div>`;
         });
         container.innerHTML = html;
         showScreen('grammarScreen');
     }
 
-    // Speak word
     function speakCurrent() {
         if (!currentCardObj) return;
         const text = direction === 'de-en' ? currentCardObj.german : currentCardObj.english;
@@ -585,18 +597,16 @@
     }
 
     // ---------------------------------------------------------
-    //  TINDER-STYLE DRAG (mouse + touch)
+    //  DRAG & SWIPE (touch + mouse)
     // ---------------------------------------------------------
     let startX = 0, currentX = 0;
     let isDragging = false;
-    let dragStartTransform = 0;
-    let dragThreshold = 120;   // pixels to trigger swipe
+    const dragThreshold = 100;
 
     function onDragStart(clientX) {
         if (!currentCardObj || currentDeck.length === 0) return;
         isDragging = true;
         startX = clientX;
-        dragStartTransform = 0;
         swipeCardElem.style.transition = 'none';
         swipeCardElem.style.cursor = 'grabbing';
     }
@@ -606,7 +616,6 @@
         const deltaX = clientX - startX;
         currentX = deltaX;
         swipeCardElem.style.transform = `translateX(${deltaX}px) rotate(${deltaX * 0.02}deg)`;
-        // Add opacity effect when dragging far
         const opacity = 1 - Math.min(Math.abs(deltaX) / 300, 0.5);
         swipeCardElem.style.opacity = opacity;
     }
@@ -618,24 +627,14 @@
         swipeCardElem.style.cursor = 'grab';
         const absDelta = Math.abs(currentX);
         if (absDelta > dragThreshold) {
-            // SWIPE triggered
             if (currentX > 0) {
-                // RIGHT SWIPE -> learned
                 swipeCardElem.style.transform = 'translateX(400px) rotate(20deg)';
-                setTimeout(() => {
-                    swipeRight();
-                    resetCardPosition();
-                }, 150);
+                setTimeout(() => { swipeRight(); resetCardPosition(); }, 150);
             } else {
-                // LEFT SWIPE -> practice later
                 swipeCardElem.style.transform = 'translateX(-400px) rotate(-20deg)';
-                setTimeout(() => {
-                    swipeLeft();
-                    resetCardPosition();
-                }, 150);
+                setTimeout(() => { swipeLeft(); resetCardPosition(); }, 150);
             }
         } else {
-            // no swipe: reset position
             resetCardPosition();
         }
         currentX = 0;
@@ -645,12 +644,9 @@
         swipeCardElem.style.transition = 'transform 0.2s ease, opacity 0.2s ease';
         swipeCardElem.style.transform = 'translateX(0px) rotate(0deg)';
         swipeCardElem.style.opacity = '1';
-        setTimeout(() => {
-            swipeCardElem.style.transition = '';
-        }, 250);
+        setTimeout(() => { swipeCardElem.style.transition = ''; }, 250);
     }
 
-    // Attach drag events (mouse + touch)
     function initDragEvents() {
         // Touch events
         swipeCardElem.addEventListener('touchstart', (e) => {
@@ -662,10 +658,9 @@
             e.preventDefault();
             onDragMove(e.touches[0].clientX);
         });
-        window.addEventListener('touchend', () => {
-            onDragEnd();
-        });
-        // Mouse events (for desktop testing)
+        window.addEventListener('touchend', () => onDragEnd());
+        
+        // Mouse events (desktop)
         swipeCardElem.addEventListener('mousedown', (e) => {
             e.preventDefault();
             onDragStart(e.clientX);
@@ -719,7 +714,6 @@
         });
     }
 
-    // Populate group dropdown
     function populateGroups() {
         const select = document.getElementById('groupSelect');
         const groups = new Set();
@@ -732,7 +726,6 @@
         });
     }
 
-    // Bind buttons and other events
     function bindEvents() {
         document.getElementById('startGameBtn').addEventListener('click', startGame);
         document.getElementById('leftBtn').addEventListener('click', () => { if (currentCardObj) swipeLeft(); });
@@ -742,12 +735,15 @@
         document.getElementById('grammarNotesBtn').addEventListener('click', showGrammar);
         document.getElementById('backFromGrammar').addEventListener('click', () => showScreen('setupScreen'));
         document.getElementById('speakCard').addEventListener('click', (e) => { e.stopPropagation(); speakCurrent(); });
+        
+        // Card tap to reveal answer (anywhere on card except speaker)
         swipeCardElem.addEventListener('click', (e) => {
             if (e.target.classList.contains('speak-icon')) return;
             if (!currentCardObj || currentDeck.length === 0) return;
             showingAnswer = !showingAnswer;
             updateCardUI();
         });
+        
         document.getElementById('showPronCheck').addEventListener('change', (e) => {
             showPronunciation = e.target.checked;
             if (currentCardObj) updateCardUI();
@@ -760,7 +756,6 @@
         });
     }
 
-    // Initialize everything
     function init() {
         populateGroups();
         setupLogin();
