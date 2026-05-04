@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Tools – Collect, Merge & Edit PDF</title>
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Roboto, sans-serif; max-width: 1200px; margin: auto; padding: 10px 20px; }
+        .tab { overflow: hidden; border-bottom: 1px solid #ccc; display: flex; flex-wrap: wrap; }
+        .tab button { background-color: inherit; border: none; outline: none; cursor: pointer; 
+                      padding: 12px 20px; transition: 0.2s; font-size: 15px; flex: 1 1 auto; }
+        .tab button:hover { background-color: #e0e0e0; }
+        .tab button.active { background-color: #f0f0f0; border-bottom: 2px solid #0078d4; }
+        .tabcontent { display: none; padding: 20px 0; }
+        .visible { display: block; }
+        button, input, select { margin: 5px; padding: 8px 12px; }
+        .status { margin: 10px 0; color: #333; }
+
+        #editorContainer { display: flex; flex-wrap: wrap; gap: 20px; }
+        .page-list { flex: 1 1 200px; max-height: 70vh; overflow-y: auto; border: 1px solid #ccc; padding: 10px; }
+        .page-list h4 { margin-top: 0; }
+        .page-thumb { margin-bottom: 10px; cursor: pointer; border: 2px solid transparent; position: relative; }
+        .page-thumb.selected { border-color: #0078d4; }
+        .page-thumb canvas { width: 100%; height: auto; display: block; }
+        .page-info { font-size: 12px; text-align: center; background: rgba(0,0,0,0.5); color: white; padding: 2px; }
+        .edit-area { flex: 3 1 600px; min-width: 300px; }
+        .main-canvas-container { position: relative; border: 1px solid #ccc; margin-bottom: 10px; background: #f9f9f9; cursor: crosshair; }
+        .main-canvas-container canvas { display: block; width: 100%; height: auto; }
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        .overlay > * { pointer-events: auto; }
+        .toolbar { margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 5px; }
+        .toolbar button { margin-right: 5px; }
+        #textInputBox, #sigFileBox { display: none; margin-top: 10px; padding: 10px; background: #f0f0f0; border-radius: 5px; }
+        .dragover { background: #e0f0ff; }
+    </style>
+</head>
+<body>
+
+<h1>📂 File Tools</h1>
+
+<div class="tab">
+    <button class="tablinks active" onclick="openTab(event, 'collect')">📁 Collect Files</button>
+    <button class="tablinks" onclick="openTab(event, 'merge')">📄 Merge PDFs</button>
+    <button class="tablinks" onclick="openTab(event, 'edit')">✏️ Edit PDF</button>
+</div>
+
+<!-- ========== COLLECT FILES (Aynı) ========== -->
+<div id="collect" class="tabcontent visible">
+    <h3>Collect PDF & Word files into a 'Combined' folder</h3>
+    <p>Select a main folder – all PDF, DOC, DOCX files from its subfolders will be copied into a new <strong>Combined</strong> folder inside it.</p>
+    <button id="selectDirBtn">📂 Select Main Folder</button>
+    <span id="collectStatus" class="status"></span>
+    <div id="progressContainer" style="display:none;">
+        <progress id="progressBar" value="0" max="100" style="width:100%;"></progress>
+    </div>
+    <p style="font-size:0.9em; color:#555;">⚠️ The browser will ask permission to write files inside the folder you choose.</p>
+</div>
+
+<!-- ========== MERGE PDFs (Aynı) ========== -->
+<div id="merge" class="tabcontent">
+    <h3>Merge multiple PDFs into one</h3>
+    <input type="file" id="pdfFiles" multiple accept="application/pdf" />
+    <button id="mergeBtn">🔗 Merge and Download</button>
+    <p style="font-size:0.9em; color:#555;">You can select PDFs from the <em>Combined</em> folder created by the collection tool.</p>
+</div>
+
+<!-- ========== EDIT PDF (Düzeltilmiş) ========== -->
+<div id="edit" class="tabcontent">
+    <h3>Edit a PDF – rotate, delete, reorder, add text, signature, redact</h3>
+    <input type="file" id="editFileInput" accept="application/pdf" />
+    <button id="loadPdfBtn">Load PDF</button>
+    <span id="editStatus"></span>
+    <div id="editorContainer" style="display:none;">
+        <div class="page-list" id="pageList"></div>
+        <div class="edit-area">
+            <div class="toolbar">
+                <button id="btnAddText">Add Text</button>
+                <button id="btnAddSig">Add Signature</button>
+                <button id="btnRedact">Add Redaction</button>
+                <button id="btnRotate">Rotate (90°)</button>
+                <button id="btnDeletePage">Delete Page</button>
+            </div>
+            <div class="main-canvas-container" id="mainCanvasContainer">
+                <canvas id="mainCanvas"></canvas>
+                <div class="overlay" id="overlay"></div>
+            </div>
+            <div id="textInputBox">
+                <label>Text: <input type="text" id="textContent" placeholder="Enter text" /></label>
+                <label>Size: <input type="number" id="textSize" value="16" min="6" max="72" style="width:60px;" /></label>
+                <button id="applyText">Place Text (click on page)</button>
+                <button id="cancelText">Cancel</button>
+            </div>
+            <div id="sigFileBox">
+                <input type="file" id="sigFile" accept="image/png" />
+                <button id="cancelSig">Cancel</button>
+            </div>
+            <button id="downloadEditedBtn" style="margin-top:15px;">⬇️ Download Edited PDF</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ==================== GLOBAL HELPERS ====================
+function downloadBlob(bytes, filename, mime) {
+    const blob = new Blob([bytes], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+}
+
+// ==================== TAB SWITCHING ====================
+function openTab(evt, tabName) {
+    document.querySelectorAll('.tabcontent').forEach(tc => tc.classList.remove('visible'));
+    document.querySelectorAll('.tablinks').forEach(btn => btn.classList.remove('active'));
+    document.getElementById(tabName).classList.add('visible');
+    evt.currentTarget.classList.add('active');
+}
+
+// ==================== 1. COLLECT FILES (Aynı) ====================
+// ... (önceki sürümdeki gibi, burada atlanmıştır ama gerçek sayfada olacak)
+
+// ==================== 2. MERGE PDFs (Aynı) ====================
+// ... 
+
+// ==================== 3. EDIT PDF (Düzeltilmiş) ====================
+let originalPdfBytes = null;
+let pdfDoc = null;
+let pdfJsDoc = null;
+let pages = [];          // { originalIndex, rotation, annotations[] }
+let currentPage = -1;
+let activeTool = null;   // 'text', 'signature', 'redact', 'placeText', 'placeImage'
+let pendingAnnotation = null;
+let fontBytes = null;
+let isDrawing = false;   // redact için
+
+// Load font
+(async () => {
+    try {
+        const resp = await fetch('https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxP.ttf');
+        fontBytes = new Uint8Array(await resp.arrayBuffer());
+    } catch(e) { console.warn('Font not loaded.'); }
+})();
+
+document.getElementById('loadPdfBtn').addEventListener('click', async () => {
+    const file = document.getElementById('editFileInput').files[0];
+    if (!file) return;
+    const editStatus = document.getElementById('editStatus');
+    editStatus.textContent = 'Loading PDF...';
+    originalPdfBytes = await file.arrayBuffer();
+    pdfDoc = await PDFLib.PDFDocument.load(originalPdfBytes, { ignoreEncryption: true });
+    pdfJsDoc = await pdfjsLib.getDocument({ data: originalPdfBytes.slice(0) }).promise;
+    const numPages = pdfJsDoc.numPages;
+    pages = [];
+    for (let i = 0; i < numPages; i++) {
+        pages.push({ originalIndex: i, rotation: 0, annotations: [] });
+    }
+    currentPage = 0;
+    editStatus.textContent = `Loaded ${numPages} page(s).`;
+    document.getElementById('editorContainer').style.display = 'flex';
+    renderPageList();
+    renderMainPage();
+});
+
+function renderPageList() {
+    const pageList = document.getElementById('pageList');
+    pageList.innerHTML = '<h4>Pages</h4>';
+    for (let i = 0; i < pages.length; i++) {
+        const p = pages[i];
+        const thumbDiv = document.createElement('div');
+        thumbDiv.className = 'page-thumb' + (i === currentPage ? ' selected' : '');
+        thumbDiv.draggable = true;
+        thumbDiv.dataset.index = i;
+        thumbDiv.addEventListener('click', () => {
+            currentPage = i;
+            resetToolState();
+            renderMainPage();
+            renderPageList();
+        });
+        thumbDiv.addEventListener('dragstart', handleDragStart);
+        thumbDiv.addEventListener('dragover', handleDragOver);
+        thumbDiv.addEventListener('drop', handleDrop);
+        thumbDiv.addEventListener('dragend', handleDragEnd);
+        const canvas = document.createElement('canvas');
+        thumbDiv.appendChild(canvas);
+        const info = document.createElement('div');
+        info.className = 'page-info';
+        info.textContent = `Page ${p.originalIndex+1}`;
+        thumbDiv.appendChild(info);
+        pageList.appendChild(thumbDiv);
+        renderThumbnail(p.originalIndex, canvas);
+    }
+}
+
+async function renderThumbnail(origIndex, canvas) {
+    const page = await pdfJsDoc.getPage(origIndex + 1);
+    const viewport = page.getViewport({ scale: 0.3 });
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext('2d');
+    await page.render({ canvasContext: ctx, viewport }).promise;
+}
+
+async function renderMainPage() {
+    if (currentPage < 0 || currentPage >= pages.length) return;
+    const pageObj = pages[currentPage];
+    const page = await pdfJsDoc.getPage(pageObj.originalIndex + 1);
+    const container = document.getElementById('mainCanvasContainer');
+    const containerWidth = container.clientWidth;
+    const viewport = page.getViewport({ scale: 1 });
+    const scale = containerWidth / viewport.width;
+    const scaledViewport = page.getViewport({ scale });
+    const mainCanvas = document.getElementById('mainCanvas');
+    mainCanvas.width = scaledViewport.width;
+    mainCanvas.height = scaledViewport.height;
+    const ctx = mainCanvas.getContext('2d');
+    await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
+    // Rotation preview
+    mainCanvas.style.transform = pageObj.rotation ? `rotate(${pageObj.rotation}deg)` : '';
+    mainCanvas.style.transformOrigin = 'center center';
+    // Overlay temizle
+    const overlay = document.getElementById('overlay');
+    overlay.innerHTML = '';
+    // Çiz mevcut annotation'ları
+    pageObj.annotations.forEach((ann, idx) => drawAnnotation(ann, idx, viewport.width, viewport.height, scale));
+}
+
+function drawAnnotation(ann, idx, pdfW, pdfH, scale) {
+    const overlay = document.getElementById('overlay');
+    const div = document.createElement('div');
+    div.style.position = 'absolute';
+    div.style.pointerEvents = 'auto';
+    const x = ann.x * scale;
+    const y = (pdfH - ann.y) * scale; // PDF bottom-left to top-left
+    div.style.left = x + 'px';
+    div.style.top = y + 'px';
+    if (ann.type === 'text') {
+        div.textContent = ann.text;
+        div.style.fontSize = (ann.size * scale) + 'px';
+        div.style.fontFamily = 'Roboto, sans-serif';
+        div.style.color = 'black';
+        div.style.background = 'rgba(255,255,255,0.8)';
+        div.style.padding = '2px';
+    } else if (ann.type === 'image') {
+        const img = document.createElement('img');
+        img.src = ann.dataUrl;
+        img.style.width = (ann.width * scale) + 'px';
+        img.style.height = (ann.height * scale) + 'px';
+        div.appendChild(img);
+    } else if (ann.type === 'rect') {
+        div.style.width = (ann.width * scale) + 'px';
+        div.style.height = (ann.height * scale) + 'px';
+        div.style.backgroundColor = 'black';
+        div.style.opacity = '0.9';
+    }
+    const delBtn = document.createElement('button');
+    delBtn.textContent = '✕';
+    delBtn.style.position = 'absolute';
+    delBtn.style.top = '-15px';
+    delBtn.style.right = '-15px';
+    delBtn.style.pointerEvents = 'auto';
+    delBtn.onclick = (e) => {
+        e.stopPropagation();
+        pages[currentPage].annotations.splice(idx, 1);
+        renderMainPage();
+    };
+    div.appendChild(delBtn);
+    overlay.appendChild(div);
+}
+
+// ---------- Tools ----------
+const btnAddText = document.getElementById('btnAddText');
+const btnAddSig = document.getElementById('btnAddSig');
+const btnRedact = document.getElementById('btnRedact');
+const btnRotate = document.getElementById('btnRotate');
+const btnDeletePage = document.getElementById('btnDeletePage');
+const textInputBox = document.getElementById('textInputBox');
+const sigFileBox = document.getElementById('sigFileBox');
+const textContent = document.getElementById('textContent');
+const textSize = document.getElementById('textSize');
+const applyTextBtn = document.getElementById('applyText');
+const cancelTextBtn = document.getElementById('cancelText');
+const sigFileInput = document.getElementById('sigFile');
+const cancelSigBtn = document.getElementById('cancelSig');
+const mainCanvasContainer = document.getElementById('mainCanvasContainer');
+const mainCanvas = document.getElementById('mainCanvas');
+
+function resetToolState() {
+    activeTool = null;
+    pendingAnnotation = null;
+    isDrawing = false;
+    btnAddText.disabled = false;
+    btnAddSig.disabled = false;
+    btnRedact.disabled = false;
+    textInputBox.style.display = 'none';
+    sigFileBox.style.display = 'none';
+    mainCanvasContainer.style.cursor = 'crosshair';
+    // Aktif çizim varsa iptal et
+}
+
+btnAddText.addEventListener('click', () => {
+    if (activeTool) return;
+    activeTool = 'text';
+    textInputBox.style.display = 'block';
+    sigFileBox.style.display = 'none';
+    btnAddText.disabled = true;
+    btnAddSig.disabled = true;
+    btnRedact.disabled = true;
+    textContent.value = '';
+    textSize.value = '16';
+});
+
+applyTextBtn.addEventListener('click', () => {
+    const txt = textContent.value.trim();
+    const size = parseInt(textSize.value) || 16;
+    if (!txt) { alert('Enter text'); return; }
+    activeTool = 'placeText';
+    pendingAnnotation = { type: 'text', text: txt, size: size };
+    textInputBox.style.display = 'none';
+    mainCanvasContainer.style.cursor = 'crosshair';
+    btnAddText.disabled = false;
+    btnAddSig.disabled = false;
+    btnRedact.disabled = false;
+});
+
+cancelTextBtn.addEventListener('click', resetToolState);
+
+btnAddSig.addEventListener('click', () => {
+    if (activeTool) return;
+    activeTool = 'signature';
+    sigFileBox.style.display = 'block';
+    textInputBox.style.display = 'none';
+    btnAddText.disabled = true;
+    btnAddSig.disabled = true;
+    btnRedact.disabled = true;
+});
+
+sigFileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        pendingAnnotation = { type: 'image', dataUrl: ev.target.result };
+        activeTool = 'placeImage';
+        sigFileBox.style.display = 'none';
+        btnAddText.disabled = false;
+        btnAddSig.disabled = false;
+        btnRedact.disabled = false;
+        mainCanvasContainer.style.cursor = 'crosshair';
+    };
+    reader.readAsDataURL(file);
+});
+
+cancelSigBtn.addEventListener('click', resetToolState);
+
+btnRedact.addEventListener('click', () => {
+    if (activeTool) return;
+    activeTool = 'redact';
+    btnAddText.disabled = true;
+    btnAddSig.disabled = true;
+    btnRedact.disabled = true;
+    mainCanvasContainer.style.cursor = 'crosshair';
+});
+
+btnRotate.addEventListener('click', () => {
+    pages[currentPage].rotation = (pages[currentPage].rotation + 90) % 360;
+    renderMainPage();
+});
+
+btnDeletePage.addEventListener('click', () => {
+    if (pages.length <= 1) { alert('Cannot delete last page.'); return; }
+    pages.splice(currentPage, 1);
+    if (currentPage >= pages.length) currentPage = pages.length - 1;
+    renderPageList();
+    renderMainPage();
+});
+
+// ---------- Canvas Container Olayları ----------
+function getCanvasCoords(e) {
+    const containerRect = mainCanvasContainer.getBoundingClientRect();
+    const scaleX = mainCanvas.width / containerRect.width;
+    const scaleY = mainCanvas.height / containerRect.height;
+    const containerX = e.clientX - containerRect.left;
+    const containerY = e.clientY - containerRect.top;
+    return {
+        x: containerX * scaleX,
+        y: containerY * scaleY
+    };
+}
+
+mainCanvasContainer.addEventListener('click', async (e) => {
+    if (!activeTool || (activeTool !== 'placeText' && activeTool !== 'placeImage')) return;
+    if (e.target !== mainCanvasContainer && e.target !== mainCanvas && e.target !== document.getElementById('overlay')) return; // sadece boş alana tıkla
+    const coords = getCanvasCoords(e);
+    const pageObj = pages[currentPage];
+    const pdfPage = await pdfJsDoc.getPage(pageObj.originalIndex + 1);
+    const viewport = pdfPage.getViewport({ scale: 1 });
+    const pdfW = viewport.width, pdfH = viewport.height;
+    const scale = mainCanvas.width / pdfW;
+    const pdfX = coords.x / scale;
+    const pdfY = pdfH - (coords.y / scale);
+    if (activeTool === 'placeText' && pendingAnnotation) {
+        pageObj.annotations.push({
+            type: 'text',
+            text: pendingAnnotation.text,
+            size: pendingAnnotation.size,
+            x: pdfX,
+            y: pdfY
+        });
+    } else if (activeTool === 'placeImage' && pendingAnnotation) {
+        const img = new Image();
+        img.src = pendingAnnotation.dataUrl;
+        await new Promise(r => { img.onload = r; });
+        const imgWidth = 100; // points
+        const imgHeight = (img.naturalHeight / img.naturalWidth) * imgWidth;
+        pageObj.annotations.push({
+            type: 'image',
+            dataUrl: pendingAnnotation.dataUrl,
+            x: pdfX,
+            y: pdfY - imgHeight,
+            width: imgWidth,
+            height: imgHeight
+        });
+    }
+    resetToolState();
+    renderMainPage();
+});
+
+mainCanvasContainer.addEventListener('mousedown', (e) => {
+    if (activeTool !== 'redact') return;
+    isDrawing = true;
+    const coords = getCanvasCoords(e);
+    pendingAnnotation = { type: 'rect', startX: coords.x, startY: coords.y };
+});
+
+mainCanvasContainer.addEventListener('mousemove', (e) => {
+    if (!isDrawing || activeTool !== 'redact') return;
+    // Opsiyonel: canlı önizleme yapılabilir, şimdilik sadece göstermelik
+});
+
+mainCanvasContainer.addEventListener('mouseup', async (e) => {
+    if (!isDrawing || activeTool !== 'redact' || !pendingAnnotation) return;
+    isDrawing = false;
+    const coords = getCanvasCoords(e);
+    const startX = pendingAnnotation.startX;
+    const startY = pendingAnnotation.startY;
+    const endX = coords.x;
+    const endY = coords.y;
+    const w = Math.abs(endX - startX);
+    const h = Math.abs(endY - startY);
+    if (w < 10 || h < 10) { resetToolState(); return; }
+    const x = Math.min(startX, endX);
+    const y = Math.min(startY, endY);
+    const pageObj = pages[currentPage];
+    const pdfPage = await pdfJsDoc.getPage(pageObj.originalIndex + 1);
+    const viewport = pdfPage.getViewport({ scale: 1 });
+    const pdfW = viewport.width, pdfH = viewport.height;
+    const scale = mainCanvas.width / pdfW;
+    pageObj.annotations.push({
+        type: 'rect',
+        x: x / scale,
+        y: pdfH - (y / scale) - (h / scale),
+        width: w / scale,
+        height: h / scale
+    });
+    resetToolState();
+    renderMainPage();
+});
+
+// ---------- Drag reorder (aynı) ----------
+let dragSrcIndex = null;
+function handleDragStart(e) {
+    dragSrcIndex = parseInt(this.dataset.index);
+    e.dataTransfer.effectAllowed = 'move';
+    this.style.opacity = '0.4';
+}
+function handleDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
+function handleDrop(e) {
+    e.preventDefault();
+    const destIndex = parseInt(this.dataset.index);
+    if (dragSrcIndex !== null && dragSrcIndex !== destIndex) {
+        const moved = pages.splice(dragSrcIndex, 1)[0];
+        pages.splice(destIndex, 0, moved);
+        if (currentPage === dragSrcIndex) currentPage = destIndex;
+        else if (currentPage > dragSrcIndex && currentPage <= destIndex) currentPage--;
+        else if (currentPage < dragSrcIndex && currentPage >= destIndex) currentPage++;
+        renderPageList();
+        renderMainPage();
+    }
+}
+function handleDragEnd(e) { this.style.opacity = '1'; dragSrcIndex = null; }
+
+// ---------- Save edited PDF ----------
+document.getElementById('downloadEditedBtn').addEventListener('click', async () => {
+    if (!pdfDoc || pages.length === 0) return;
+    const newPdf = await PDFLib.PDFDocument.create();
+    let robotoFont = null;
+    if (fontBytes) {
+        try { robotoFont = await newPdf.embedFont(fontBytes); } catch(e) {}
+    }
+    const originalPdf = await PDFLib.PDFDocument.load(originalPdfBytes, { ignoreEncryption: true });
+    for (const pageObj of pages) {
+        const [copiedPage] = await newPdf.copyPages(originalPdf, [pageObj.originalIndex]);
+        if (pageObj.rotation) copiedPage.setRotation(PDFLib.degrees(pageObj.rotation));
+        newPdf.addPage(copiedPage);
+        for (const ann of pageObj.annotations) {
+            if (ann.type === 'text') {
+                const font = robotoFont || (await newPdf.embedFont(PDFLib.StandardFonts.Helvetica));
+                copiedPage.drawText(ann.text, {
+                    x: ann.x,
+                    y: ann.y,
+                    size: ann.size,
+                    font: font,
+                    color: PDFLib.rgb(0,0,0)
+                });
+            } else if (ann.type === 'image') {
+                const imgBytes = await (await fetch(ann.dataUrl)).arrayBuffer();
+                let image;
+                if (ann.dataUrl.includes('image/png')) image = await newPdf.embedPng(imgBytes);
+                else image = await newPdf.embedJpg(imgBytes);
+                copiedPage.drawImage(image, {
+                    x: ann.x,
+                    y: ann.y,
+                    width: ann.width,
+                    height: ann.height
+                });
+            } else if (ann.type === 'rect') {
+                copiedPage.drawRectangle({
+                    x: ann.x,
+                    y: ann.y,
+                    width: ann.width,
+                    height: ann.height,
+                    color: PDFLib.rgb(0,0,0),
+                    borderWidth: 0,
+                });
+            }
+        }
+    }
+    const bytes = await newPdf.save();
+    downloadBlob(bytes, 'edited.pdf', 'application/pdf');
+});
+</script>
+</body>
+</html>
